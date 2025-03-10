@@ -139,14 +139,36 @@
                             <span class="title">
                                 <b>Teams</b>
                                 <icon class="add_team" id="add_team" title="Create Team">add</icon>
-                                
-                                <div id="teamOverlay" class="team-overlay">
+                            </span>
+                                <div id="projectOverlay" class="overlay">
+                                    <div id="modal" class="modal forms">
+                                        <span class="title">
+                                            <b>Create New Project</b>
+                                            <icon id="pcloseModalBtn" class="close-button">close</icon>
+                                        </span>
+                                        <form action="scode/function.php" method="POST">
+                                            <span class="input">
+                                                <input type="text" name="pname" id="pname">
+                                                <label for="pname">Project Name</label>
+                                            </span>
+                                            <span class="input">
+                                                <textarea name="pdesc" id="pdesc" data-limit="50"></textarea>
+                                                <label for="pdesc">Project Description</label>
+                                            </span>
+                                            <div class="button">
+                                                <button type="submit" name="createProject">Create Project</button>
+                                                <button type="reset">Reset</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                                <div id="teamOverlay" class="overlay">
                                     <div id="modal" class="modal forms">
                                         <span class="title">
                                             <b>Add Team</b>
                                             <icon id="closeModalBtn" class="close-button">close</icon>
                                         </span>
-                                        <form action="scodes/function.php" method="POST">
+                                        <form action="scode/function.php" method="POST">
                                             <span class="input">
                                                 <input type="text" name="teamname" id="teamname">
                                                 <label for="teamname">Team Name</label>
@@ -163,7 +185,7 @@
                                         </form>
                                     </div>
                                 </div>
-                            </span>
+
                             <span class="team">
                                 <span class="item shine">
                                 </span>
@@ -184,8 +206,7 @@
                     </span>
                     <span class="project">
                         <h5>Projects</h5>
-                        <span class="selection">
-                        </span>
+                        <span class="selection"></span>
                     </span>
                 </span>
             </main>

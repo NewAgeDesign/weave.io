@@ -414,16 +414,41 @@ io = {
     
         // ✅ 1. Floating Labels for Inputs
         function floatingLabels() {
-            const inputs = document.querySelectorAll('form input, form textarea');
+            const formContainer = document.querySelector(".forms"); // Parent Check
+            if (!formContainer) return; // Stop if parent doesn't exist
     
+            const inputs = document.querySelectorAll("form input, form textarea");
             inputs.forEach(input => {
-                input.addEventListener('input', () => {
+                input.addEventListener("input", () => {
                     let label = document.querySelector(`label[for="${input.id}"]`);
                     if (label) {
-                        label.style.color = 'var(--accent)';
-                        label.style.fontSize = input.value.trim() ? '0.8rem' : '1rem';
-                        label.style.top = input.value.trim() ? '-1.4rem' : '0.5rem';
-                        label.style.left = input.value.trim() ? '0' : '0.5rem';
+                        label.style.color = input.value.trim() ? "var(--accent)" : "var(--secondary2)";
+                        label.style.fontSize = input.value.trim() ? "0.8rem" : "1rem";
+                        label.style.top = input.value.trim() ? "-1.4rem" : "0.5rem";
+                        label.style.left = input.value.trim() ? "0" : "0.5rem";
+                    }
+    
+                    // Handle character counter
+                    const limit = input.getAttribute("data-limit");
+                    if (limit !== null) {
+                        const count = input.value.length;
+                        let counter = document.getElementById(`${input.id}Counter`);
+    
+                        // Create counter element if it doesn't exist
+                        if (!counter) {
+                            counter = document.createElement('span');
+                            counter.classList.add('counter');
+                            counter.id = `${input.id}Counter`;
+                            input.parentElement.appendChild(counter);
+                        }
+    
+                        counter.textContent = `${count}/${limit}`;
+    
+                        // Enforce character limit
+                        if (count > limit) {
+                            input.value = input.value.slice(0, limit);
+                            counter.textContent = `${limit}/${limit}`;
+                        }
                     }
                 });
             });
@@ -529,6 +554,7 @@ io = {
                     const formData = new FormData(form);
                     formData.forEach((value, key) => { data[key] = value.trim(); });
                     data['action'] = event.submitter.name; // Capture submit button action
+                    console.log(data);
     
                     io.in('ajax', 'POST', 'scode/function.php', data, function (res) {
                         console.log(res);
@@ -654,7 +680,6 @@ io = {
 };
 
 io.in(conStyle, root, 'config.json');
-// ✅ Function to check session and toggle between #gateway & #app
 
 document.addEventListener('DOMContentLoaded', function () {
     io.form().navigator("signup", ".links", ".form", "formStore");

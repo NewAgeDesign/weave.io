@@ -203,49 +203,10 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
             session_destroy();
             errorm($res, 'good', 'Logout Success', 'You\'ve successfully logged out.');
         break;
-        
-        // Create Team
-        case 'createTeam':
-            $teamName = trim($data['teamname']);
-            $teamDesc = trim($data['teamdesc']);
-            $owner = $_SESSION['email'];
-        
-            // Check if the team name is empty
-            if (empty($teamName)) {
-                errorm($res, 'bad', 'CT01: Team Name Empty', 'The team name is required, please enter a name and try again.');
-                break;
-            }
-            // Check if the team name already exists
-            // use real_escape_string to prevent SQL injection
-            $teamName = $conn->real_escape_string($teamName);
-            $stmt = $conn->prepare("SELECT teamid FROM team WHERE name = ? LIMIT 1");
-            $stmt->bind_param('s', $teamName);
-            $stmt->execute();
-            $result = $stmt->get_result();
-
-            if ($result->num_rows > 0) {
-                errorm($res, 'bad', 'CT02: Duplicate Team Name', "A team named '$teamName' already exists. Please choose a different name.");
-                $stmt->close();
-            break;
-            }else{
-                // Insert team into the database
-                $stmt = $conn->prepare("INSERT INTO team (`name`, descr, owemail) VALUES (?, ?, ?)");
-                $stmt->bind_param('sss', $teamName, $teamDesc, $owner);
-
-                if ($stmt->execute()) {
-                    errorm($res, 'info', 'CT03: Team Created', "Team '$teamName' has been created successfully.");
-                } else {
-                    errorm($res, 'bad', 'CT04: Team Creation Failed', 'Failed to create team in the database. Error: ' . $stmt->error);
-                }
-            }
-
-
-        break;
-        
         // Create project
         case $data['action'] === 'createProject':
-            $projName = trim($data['projname']);
-            $projDesc = trim($data['projectDesc']);
+            $projName = trim($data['pname']);
+            $projDesc = trim($data['pdesc']);
         
             if (empty($projName)) {
                 errorm($res, 'bad', "PR01 : Project Name Empty", "The Project name is important, please enter the project name and try again.");
@@ -324,6 +285,52 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
                 errorm($res, 'bad', "PR10 : Folder Deletion Failed", "Error while deleting folder '$folderPath': " . $e->getMessage());
             }
         break;
+        // Create Team
+        case $data['action'] === 'createTeam':
+            $teamName = $data['teamname'];
+            $teamDesc = $data['teamdesc'];
+            $owner = $_SESSION['email'];
+
+            // Ensure session is set
+            if (empty($owner)) {
+                errorm($res, 'bad', 'CT05: Session Error', 'User session not found. Please log in again.');
+                break;
+            }
+
+            // Check if the team name is empty
+            if (empty($teamName)) {
+                errorm($res, 'bad', 'CT01: Team Name Empty', 'The team name is required, please enter a name and try again.');
+                break;
+            }
+
+            // Prevent SQL injection
+            $teamName = $conn->real_escape_string($teamName);
+
+            // Check if the team already exists
+            $stmt = $conn->prepare("SELECT teamid FROM team WHERE name = ? LIMIT 1");
+            $stmt->bind_param('s', $teamName);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            if ($result->num_rows > 0) {
+                errorm($res, 'bad', 'CT02: Duplicate Team Name', "A team named '$teamName' already exists. Please choose a different name.");
+                $stmt->close();
+                break;
+            }
+            $stmt->close(); // Close after checking
+
+            // Insert new team into database
+            $stmt = $conn->prepare("INSERT INTO team (`name`, `descr`, `owemail`) VALUES (?, ?, ?)");
+            $stmt->bind_param('sss', $teamName, $teamDesc, $owner);
+
+            if ($stmt->execute()) {
+                errorm($res, 'info', 'CT03: Team Created', "Team '$teamName' has been created successfully.");
+            } else {
+                errorm($res, 'bad', 'CT04: Team Creation Failed', 'Failed to create team in the database. Error: ' . $stmt->error);
+            }
+
+            $stmt->close(); // ✅ Ensure statement is closed
+            break;
         
         case $data['action'] === 'addTab':
             $projName = basename(trim($data['name']));

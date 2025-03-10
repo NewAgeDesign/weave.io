@@ -118,7 +118,9 @@ function projects(){
 // Run on page load
 document.addEventListener('DOMContentLoaded', function () {
     io.setupModal('add_team', 'teamOverlay', 'modal', 'closeModalBtn');
-    io.setupModal('add_team', 'teamOverlay', 'modal', 'closeModalBtn');
+    io.setupModal('add_project', 'projectOverlay', 'modal', 'pcloseModalBtn');
+});
+document.addEventListener('DOMContentLoaded', function () {
     checkSession();
     setTimeout(checkTeam, 1000); // Delay to ensure DOM is loaded
     projects();
