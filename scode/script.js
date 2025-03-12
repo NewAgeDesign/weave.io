@@ -24,42 +24,69 @@ function checkSession() {
     });
 }
 function checkTeam() {
+    
+    let savedTeamId = localStorage.getItem('selectedTeam');
     io.in('ajax', 'get', 'scode/function.php', { action: 'teams' }, function (res) {
         let teamContainer = document.querySelector('.team');
-
         if (!teamContainer) {
             console.error("Error: .team container not found in the DOM.");
-            return; // Stop execution if `.team` is missing
+            return;
         }
 
-        let teams = res.teams;
-        teamContainer.innerHTML = ''; // Clear previous teams
+        let teams = res.teams || [];
+        let existingTeams = Array.from(teamContainer.children).map(t => t.dataset.teamId);
+        let newTeamIds = teams.map(t => t.id);
 
+        // If nothing changed, do nothing (prevents unnecessary re-rendering)
+        if (JSON.stringify(existingTeams) === JSON.stringify(newTeamIds)) return;
+
+        let projectdash = document.querySelector('.projects');
+
+        // Update only if there's a change
         if (teams.length === 0) {
             teamContainer.innerHTML = '<p>No Teams Created</p>';
+            projectdash.innerHTML = '';
+            if(savedTeamId !== null){
+                localStorage.setItem('selectedTeam', null);
+            }
         } else {
-            let teamList = teams.map(t => `
+            teamContainer.innerHTML = teams.map(t => `
                 <span class="item" id="team-${t.id}" data-team-id="${t.id}" data-team-name="${t.name}">
                     <b class="name">${t.name}</b>
                     <span>
-                        <icon class="del" title="delete team">delete</icon>
-                        <icon class="edit" title="edit team">edit</icon>
+                        <icon class="del" title="delete team" team-id="${t.id}">delete</icon>
                     </span>
                 </span>
             `).join('');
-            teamContainer.innerHTML = teamList;
 
-            // Get saved team from localStorage
-            let savedTeamId = localStorage.getItem('selectedTeam');
-            let selectedTeam = savedTeamId
-                ? document.querySelector(`#team-${savedTeamId}`)
-                : document.querySelector('.team .item');
-
-            if (selectedTeam) {
-                selectedTeam.classList.add('selected');
-                showTeamUI(selectedTeam.dataset.teamName);
-            }
+            projectdash.innerHTML = `
+                <span class="title">
+                    <h3></h3>
+                    <span>
+                        <icon class="add_project" id="add_project" title="Create Project">add</icon>
+                        <icon class="add_member" id="add_member" title="Add Member">link</icon>
+                    </span>
+                </span>
+                <span class="project">
+                    <h5>Projects</h5>
+                    <span class="selection"></span>
+                </span>
+            `;
         }
+
+        // Get saved team from localStorage
+        let selectedTeam = savedTeamId
+            ? document.querySelector(`#team-${savedTeamId}`)
+            : document.querySelector('.team .item');
+
+        if (selectedTeam) {
+            selectedTeam.classList.add('selected');
+            showTeamUI(selectedTeam.dataset.teamName);
+        }
+
+
+        // Delete a team
+        del();
     });
 }
 
@@ -81,9 +108,24 @@ document.addEventListener('click', function (event) {
         localStorage.setItem('selectedTeam', teamId);
 
         // Show team UI
-        showTeamUI(teamName);
+        showTeamUI(teamName, teamId);
+        projects();
     }
 });
+
+function del() {
+    document.querySelectorAll('.team .del').forEach(btn => {
+        btn.addEventListener('click', function() {
+            let teamId = this.getAttribute('team-id');
+            console.log(teamId)
+            if (confirm("All team members and projects will be removed permanently, are you sure you want to delete this team item?")) {
+                io.in(ajax, get, 'scode/function.php', {action: 'delete-team', id: teamId}, function(res) {
+                    checkTeam(); // Refresh the projects list
+                });
+            }
+        });
+    });
+}
 
 // Function to display the selected team's name
 function showTeamUI(teamName) {
@@ -92,37 +134,75 @@ function showTeamUI(teamName) {
         teamTitle.innerText = teamName; // Display the team name instead of the ID
     }
 }
+let prevProjectsHTML = ""; // Store previous HTML state
 
-function projects(){
-    let pcontainer = document.querySelector('.project .selection');
-    pcontainer.innerHTML = '';
-    io.in(ajax, get, 'scode/function.php', {action: 'projects'}, function(res){
-        let projects = res.projects
-        if(!res.projects){
-            pcontainer.innerHTML = '<p>No projects Created, please create a project for your team.</p>'
-        }else{
-            projects.forEach(p, ()=>{
-                pcontainer.innerHTML = `
-                            <span class="item">
-                                <span class="details">
-                                    <b>${p.name}</b>
-                                    <icon>info
-                                        <span class='info'>${p.descr}</span>
-                                    </icon>
-                                </span>
-                            </span>`;
-            })
-        }
-    })
+function projects() {
+    let tid = localStorage.getItem('selectedTeam');
+    console.log(tid);
+    if(tid != 'null'){
+        io.in(ajax, get, 'scode/function.php', {action: 'projects', id : tid}, function(res) {
+            let projects = res.projects;
+            console.log(projects);
+            let pcontainer = document.querySelector('.project .selection');
+
+            if (!projects || projects.length === 0) {
+                let emptyMessage = '<p>No projects Created, please create a project for your team.</p>';
+                if (pcontainer.innerHTML.trim() !== emptyMessage) {
+                    pcontainer.innerHTML = emptyMessage;
+                }
+                return;
+            }
+
+            let pList = projects.map(p => {
+                let infoIcon = p.descr ? `<icon>info<span class='info'>${p.descr}</span></icon>` : '';
+                return `
+                    <span class="item">
+                        <span class="details">
+                            <b>${p.name}</b>
+                            <span>
+                                <icon data-id="${p.id}" class="delete">delete</icon>
+                                ${infoIcon}
+                            </span>
+                        </span>
+                    </span>
+                `;
+            }).join('');
+
+            // Only update the DOM if the content has changed
+            if (pList !== prevProjectsHTML) {
+                prevProjectsHTML = pList;
+                pcontainer.innerHTML = pList;
+                attachDeleteListeners(); // Reattach delete event listeners
+            }
+        });
+        
+        io.setupModal('add_project', 'projectOverlay', 'modal', 'pcloseModalBtn', 'tid');
+    }
 }
-// Run on page load
+
+function attachDeleteListeners() {
+    document.querySelectorAll('.delete').forEach(btn => {
+        btn.addEventListener('click', function() {
+            let projectId = this.getAttribute('data-id');
+            if (confirm("Are you sure you want to delete this project?")) {
+                io.in(ajax, get, 'scode/function.php', {action: 'delete-project', id: projectId}, function(res) {
+                    projects(); // Refresh the projects list
+                });
+            }
+        });
+    });
+}
+
+
 document.addEventListener('DOMContentLoaded', function () {
-    io.setupModal('add_team', 'teamOverlay', 'modal', 'closeModalBtn');
-    io.setupModal('add_project', 'projectOverlay', 'modal', 'pcloseModalBtn');
-});
-document.addEventListener('DOMContentLoaded', function () {
-    checkSession();
-    setTimeout(checkTeam, 1000); // Delay to ensure DOM is loaded
     projects();
+    checkTeam();
+    io.setupModal('add_team', 'teamOverlay', 'modal', 'closeModalBtn');
+    io.setupModal('add_project', 'projectOverlay', 'modal', 'pcloseModalBtn', 'tid');
+    checkSession();
+    setInterval(() => {
+        checkTeam();
+        projects();
+    }, 1000);
 });
 

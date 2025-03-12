@@ -205,6 +205,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
         break;
         // Create project
         case $data['action'] === 'createProject':
+            $teamId = trim($data['tid']);
             $projName = trim($data['pname']);
             $projDesc = trim($data['pdesc']);
         
@@ -228,8 +229,8 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
             $stmt->close(); // Close the statement after the existence check
         
             // Insert project into the database
-            $stmt = $conn->prepare("INSERT INTO project (name, description) VALUES (?, ?)");
-            $stmt->bind_param('ss', $projName, $projDesc);
+            $stmt = $conn->prepare("INSERT INTO project (name, description, teamid) VALUES (?, ?, ?)");
+            $stmt->bind_param('ssi', $projName, $projDesc, $teamId);
         
             if ($stmt->execute()) {
                 // Create folder after successful DB insert
@@ -350,81 +351,148 @@ else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $res['session'] = isset($_SESSION['email'], $_SESSION['fname'], $_SESSION['lname'], $_SESSION['plan'], $_SESSION['color']) 
             ? ['email' => $_SESSION['email'], 'fname' => $_SESSION['fname'], 'lname' => $_SESSION['lname'], 'plan' => $_SESSION['plan'], 'color' => $_SESSION['color']] 
             : null;
+        break;
 
-
-            break;
-
-            case 'teams':
-                // Fetch teams from the database
-                $query = "SELECT * FROM team";
-                $result = $conn->query($query);
-
-                $teams = []; // Array to store team data
-
-                if ($result) {
-                    if ($result->num_rows > 0) {
-                        // Fetch each team row and build the response
-                        while ($row = $result->fetch_assoc()) {
-                            $teams[] = [
-                                'id' => $row['teamid'],
-                                'name' => $row['name'],
-                                'descr' => $row['descr'],
-                                'owemail' => $row['owemail']
-                            ];
-                        }
-                    }
-                } else {
-                    errorm($res, 'bad', 'Error', 'Database query failed: ' . $conn->error);
-                }
-
-                $res['teams'] = $teams;
-                break;
-
-
-        case 'projects':
-            // Query to fetch project details
-            $query = "SELECT name, description FROM project";
+        case 'teams':
+            // Fetch teams from the database
+            $query = "SELECT * FROM team";
             $result = $conn->query($query);
 
-            $projects = []; // Array to store project data
+            $teams = []; // Array to store team data
 
             if ($result) {
-                if ($result->num_rows > 0 && $_GET['action']==='projects') {
-                    // Fetch each project row and build the response
+                if ($result->num_rows > 0) {
+                    // Fetch each team row and build the response
                     while ($row = $result->fetch_assoc()) {
-                        $res[]['projects'] = [
+                        $teams[] = [
+                            'id' => $row['teamid'],
                             'name' => $row['name'],
-                            'descr' => $row['description'],
-                            'initials' => $_SESSION['fname'][0] . $_SESSION['lname'][0]
+                            'descr' => $row['descr'],
+                            'owemail' => $row['owemail']
                         ];
                     }
                 }
             } else {
                 errorm($res, 'bad', 'Error', 'Database query failed: ' . $conn->error);
             }
-            break;
 
-            case 'tabs':
-                if (!isset($_SESSION['tab'])) {
-                    $_SESSION['tab'] = []; // Initialize empty tabs array if not set
+            $res['teams'] = $teams;
+        break;
+
+        case 'delete-team': 
+            $id = intval($_GET['id']); // Ensure the ID is an integer
+
+            // Start a transaction to ensure both deletions are completed successfully
+            $conn->begin_transaction();
+
+            try {
+                // Check if the team exists
+                $query = "SELECT teamid FROM team WHERE teamid = ?";
+                $stmt = $conn->prepare($query);
+                $stmt->bind_param('i', $id);
+                $stmt->execute();
+                $result = $stmt->get_result();
+
+                if ($result->num_rows === 0) {
+                    errorm($res, 'bad', 'DEL00: Team Missing', 'No team found.');
+                    exit;
                 }
-            
-                $tabs = []; // Prepare an array to store tab data
-                foreach ($_SESSION['tab'] as $tabName) {
-                    $tabs[] = [
-                        'tabs' => [
-                            'name' => $tabName
-                        ]
-                    ];
+
+                // Delete projects associated with the team
+                $deleteProjectsQuery = $conn->prepare("DELETE FROM project WHERE teamid = ?");
+                $deleteProjectsQuery->bind_param('i', $id);
+                $deleteProjectsQuery->execute();
+
+                // Delete the team
+                $deleteTeamQuery = $conn->prepare("DELETE FROM team WHERE teamid = ?");
+                $deleteTeamQuery->bind_param('i', $id);
+                $deleteTeamQuery->execute();
+
+                // Commit the transaction
+                $conn->commit();
+
+                errorm($res, 'info', 'DEL01: Team Deleted', 'Team and associated projects deleted successfully.');
+            } catch (Exception $e) {
+                // Rollback the transaction in case of an error
+                $conn->rollback();
+                errorm($res, 'bad', 'DEL02: Delete Error', 'Failed to delete team and projects: ' . $e->getMessage());
+            }
+
+            // Close the statements
+            $stmt->close();
+            $deleteProjectsQuery->close();
+            $deleteTeamQuery->close();
+
+
+        break;
+
+        case 'delete-project':
+            $projectId = intval($_GET['id']);
+
+            // Check if the project exists
+            $query = "SELECT id FROM project WHERE id = $projectId";
+            $result = $conn->query($query);
+
+            if ($result->num_rows === 0) {
+                errorm($res, 'bad', 'DEL00 : Project Missing', 'No project found.');
+                exit;
+            }
+
+            // Delete the project
+            $deleteQuery = $conn->prepare("DELETE FROM project WHERE id = ?");
+            if ($deleteQuery->execute([$projectId])) {
+                errorm($res, 'info', 'DEL01 : Project Deleted', 'Project deleted successfully.');
+            } else {
+                echo json_encode(["success" => false, "message" => "Failed to delete project."]);
+                errorm($res, 'red', 'DEL02 : Delete Error', 'Failed to delete project.');
+            }
+        break;
+
+        case 'projects':
+            // Query to fetch project details
+            $tid = intval($_GET['id']);
+            $query = "SELECT * FROM project WHERE teamId = $tid";
+            $result = $conn->query($query);
+
+            $projects = []; // Array to store project data
+            if ($result) {
+                if ($result->num_rows > 0) {
+                    // Fetch each team row and build the response
+                    while ($row = $result->fetch_assoc()) {
+                        $projects[] = [
+                            'id' => $row['id'],
+                            'name' => $row['name'],
+                            'descr' => $row['description']
+                        ];
+                    }
                 }
-            
-                // Merge tabs into the response
-                $res = array_merge($res, $tabs);
-            
-                // Return JSON response
-                header('Content-Type: application/json');
-                echo json_encode($res);
-            exit; // Ensure no additional output
+            } else {
+                errorm($res, 'bad', 'Error', 'Database query failed: ' . $conn->error);
+            }
+            $res['projects'] = $projects;
+        break;
+
+        case 'tabs':
+            if (!isset($_SESSION['tab'])) {
+                $_SESSION['tab'] = []; // Initialize empty tabs array if not set
+            }
+        
+            $tabs = []; // Prepare an array to store tab data
+            foreach ($_SESSION['tab'] as $tabName) {
+                $tabs[] = [
+                    'tabs' => [
+                        'name' => $tabName
+                    ]
+                ];
+            }
+        
+            // Merge tabs into the response
+            $res = array_merge($res, $tabs);
+        
+            // Return JSON response
+            header('Content-Type: application/json');
+            echo json_encode($res);
+        exit; // Ensure no additional output
 
         case 'directories':
             $projectName = $_GET['name'] ?? null;
@@ -444,11 +512,11 @@ else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 // Project name not specified
                 errorm($res, 'bad', 'DIR02: Missing Project Name (400)', 'No project name was specified in the request.');
             }
-            exit;
+        exit;
             
         default:
             errorm($res, 'bad', 'Error', "Unsupported action: {$_GET['action']}");
-            break;
+        break;
     }
     
 }

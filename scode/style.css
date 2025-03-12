@@ -515,15 +515,12 @@ header{
             
             .selection{
                 height: calc(100% - 100pt);
-                justify-content: left;
                 border-radius: 4pt;
                 overflow-y: scroll;
                 position: relative;
-                flex-wrap: wrap;
                 padding: 4pt 0;
-                display: flex;
+                display: block;
                 width: 100%;
-                gap: 36px;
 
                 p{
                     color: var(--secondary2);
@@ -537,6 +534,9 @@ header{
                 .item{
                     border: 1.5px solid var(--secondary2);
                     background-color: var(--secondary3);
+                    display: inline-block;
+                    margin-bottom: 42px;
+                    margin-right: 20px;
                     position: relative;
                     border-radius: 4pt;
                     aspect-ratio: 16/9;
@@ -551,8 +551,8 @@ header{
                         align-items: center;
                         position: absolute;
                         display: flex;
-                        bottom: -24pt;
-                        padding: 4pt;
+                        bottom: -28pt;
+                        padding: 4pt 0;
                         width: 100%;
 
                         icon{
@@ -564,16 +564,15 @@ header{
                                 border-radius: 4pt;
                                 position: absolute;
                                 padding: 4pt 12pt;
-                                text-align:start;
+                                text-align: left;
                                 display: none;
-                                width: 200px;
+                                width: 246px;
                                 z-index: 100;
-                                right: 0;
                                 top: 20pt;
+                                right: 0;
                             }
                             &:hover{
                                 .info{
-                                    text-align: right;
                                     display: flex;
                                 }
                             }

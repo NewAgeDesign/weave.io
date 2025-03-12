@@ -639,42 +639,65 @@ io = {
             }
         };
     },
-    setupModal: function setupModal(triggerId, overlayId, modalId, closeButtonId) {
+    setupModal: function setupModal(triggerId, overlayId, modalId, closeButtonId, hiddenID) {
         const trigger = document.getElementById(triggerId);
         const overlay = document.getElementById(overlayId);
         const modal = document.getElementById(modalId);
         const closeButton = document.getElementById(closeButtonId);
-    
-        trigger.addEventListener('click', openModal);
-    
-        closeButton.addEventListener('click', closeModal);
-        overlay.addEventListener('click', function(event) {
-            if (event.target === this) {
-                closeModal();
+        const hidden = document.getElementById(hiddenID);
+        
+        if(trigger && overlay && modal && closeButton){
+            trigger.addEventListener('click', openModal);
+
+            function changeid(){
+                if(hidden){
+                    // Fetch the value from local storage
+                    const storedValue = localStorage.getItem('selectedTeam');
+        
+                    // Check if the value exists in local storage
+                    if (storedValue !== null) {
+                        // Set the value of the hidden input field
+                        hidden.value = storedValue;
+                    } else {
+                        console.warn('No value found in local storage for the key "yourKey".');
+                    }
+            
+                }
             }
-        });
-    
-        function openModal() {
-            overlay.classList.add('active');
-            setTimeout(() => {
-                modal.style.opacity = '1';
-                modal.style.transform = 'translateY(0) rotate(0deg)';
-            }, 10);
+
+            setInterval(changeid,1000);
+        
+            closeButton.addEventListener('click', closeModal);
+            overlay.addEventListener('click', function(event) {
+                if (event.target === this) {
+                    closeModal();
+                }
+            });
+        
+            function openModal() {
+                overlay.classList.add('active');
+                setTimeout(() => {
+                    modal.style.opacity = '1';
+                    modal.style.transform = 'translateY(0) rotate(0deg)';
+                    const storedValue = localStorage.getItem('selectedTeam');
+                    console.log(storedValue);
+                }, 10);
+            }
+        
+            function closeModal() {
+                modal.style.opacity = '0';
+                modal.style.transform = 'translateY(100%) rotate(5deg)';
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                    overlay.classList.remove('active');
+                    // Reset modal styles to ensure it can be reopened
+                    modal.style.opacity = '';
+                    modal.style.transform = '';
+                    overlay.style.opacity = '';
+                }, 300); // Ensure this matches the transition duration in CSS
+            }
         }
-    
-        function closeModal() {
-            modal.style.opacity = '0';
-            modal.style.transform = 'translateY(100%) rotate(5deg)';
-            overlay.style.opacity = '0';
-            setTimeout(() => {
-                overlay.classList.remove('active');
-                // Reset modal styles to ensure it can be reopened
-                modal.style.opacity = '';
-                modal.style.transform = '';
-                overlay.style.opacity = '';
-            }, 300); // Ensure this matches the transition duration in CSS
         }
-    }
     
     
 };

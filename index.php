@@ -147,12 +147,13 @@
                                             <icon id="pcloseModalBtn" class="close-button">close</icon>
                                         </span>
                                         <form action="scode/function.php" method="POST">
+                                            <input type="hidden" name="tid" id="tid" name="">
                                             <span class="input">
                                                 <input type="text" name="pname" id="pname">
                                                 <label for="pname">Project Name</label>
                                             </span>
                                             <span class="input">
-                                                <textarea name="pdesc" id="pdesc" data-limit="50"></textarea>
+                                                <textarea name="pdesc" id="pdesc" data-limit="150"></textarea>
                                                 <label for="pdesc">Project Description</label>
                                             </span>
                                             <div class="button">
@@ -197,17 +198,6 @@
                     <icon id="logout">logout <p>Logout</p></icon>
                 </span>
                 <span class="projects">
-                    <span class="title">
-                        <h3></h3>
-                        <span>
-                            <icon class="add_project" id="add_project" title="Create Project">add</icon>
-                            <icon class="add_member" id="add_member" title="Add Member">link</icon>
-                        </span>
-                    </span>
-                    <span class="project">
-                        <h5>Projects</h5>
-                        <span class="selection"></span>
-                    </span>
                 </span>
             </main>
         </section>
