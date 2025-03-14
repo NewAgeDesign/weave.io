@@ -22,9 +22,20 @@ function checkSession() {
             setInterval(checkTeam, 3000);
         }
     });
+    
+    setTimeout(() => {
+        checkTeam();
+        projects();
+        link();
+        io.setupModal('add_team', 'teamOverlay', 'modal', 'closeModalBtn');
+        io.setupModal('add_project', 'projectOverlay', 'modal', 'pcloseModalBtn', 'tid');
+        setInterval(() => {
+            checkTeam();
+            projects();
+        }, 1000);
+    }, 5000);
 }
 function checkTeam() {
-    
     let savedTeamId = localStorage.getItem('selectedTeam');
     io.in('ajax', 'get', 'scode/function.php', { action: 'teams' }, function (res) {
         let teamContainer = document.querySelector('.team');
@@ -32,6 +43,7 @@ function checkTeam() {
             console.error("Error: .team container not found in the DOM.");
             return;
         }
+        
 
         let teams = res.teams || [];
         let existingTeams = Array.from(teamContainer.children).map(t => t.dataset.teamId);
@@ -94,7 +106,6 @@ function checkTeam() {
 document.addEventListener('click', function (event) {
     let item = event.target.closest('.team .item'); // Ensure click is inside an item
     if (item) {
-        console.log('Item clicked:', item);
 
         // Remove 'selected' from all items
         document.querySelectorAll('.team .item').forEach(i => i.classList.remove('selected'));
@@ -109,7 +120,6 @@ document.addEventListener('click', function (event) {
 
         // Show team UI
         showTeamUI(teamName, teamId);
-        projects();
     }
 });
 
@@ -138,11 +148,9 @@ let prevProjectsHTML = ""; // Store previous HTML state
 
 function projects() {
     let tid = localStorage.getItem('selectedTeam');
-    console.log(tid);
     if(tid != 'null'){
         io.in(ajax, get, 'scode/function.php', {action: 'projects', id : tid}, function(res) {
             let projects = res.projects;
-            console.log(projects);
             let pcontainer = document.querySelector('.project .selection');
 
             if (!projects || projects.length === 0) {
@@ -150,13 +158,12 @@ function projects() {
                 if (pcontainer.innerHTML.trim() !== emptyMessage) {
                     pcontainer.innerHTML = emptyMessage;
                 }
-                return;
             }
 
             let pList = projects.map(p => {
                 let infoIcon = p.descr ? `<icon>info<span class='info'>${p.descr}</span></icon>` : '';
                 return `
-                    <span class="item">
+                    <span class="item" id="${p.id}">
                         <span class="details">
                             <b>${p.name}</b>
                             <span>
@@ -193,16 +200,35 @@ function attachDeleteListeners() {
     });
 }
 
+function link() {
+    document.addEventListener('click', function (event) {
+        let selectedteam = localStorage.getItem('selectedTeam');
+        
+        if (!selectedteam || selectedteam === 'null') {
+            return;
+        }
+    
+        // Check if the clicked element is the "add member" button
+        if (event.target && event.target.id === 'add_member') {
+            console.log("Sharing link for team:", selectedteam);
+    
+            io.in('ajax', 'get', 'scode/function.php', { action: 'share-link', id: selectedteam }, function (res) {
+                console.log(res.link)
+                if (res.link) {
+                    navigator.clipboard.writeText(res.link).then(() => {
+                        io.out('errorMotd', 'info', 'LC01 : Link Copied', 'Your Link has been copied to the clipboard.');
+                    }).catch(() => {
+                        io.out('errorMotd', 'bad', 'LC02 : Copy Failed', 'Failed to copy invite link.');
+                    });
+                } else {
+                    io.out('errorMotd', 'bad', 'LC03 : AJAX Error', 'Failed to generate invite link.');
+                }
+            });
+        }
+    });
+}
 
 document.addEventListener('DOMContentLoaded', function () {
-    projects();
-    checkTeam();
-    io.setupModal('add_team', 'teamOverlay', 'modal', 'closeModalBtn');
-    io.setupModal('add_project', 'projectOverlay', 'modal', 'pcloseModalBtn', 'tid');
     checkSession();
-    setInterval(() => {
-        checkTeam();
-        projects();
-    }, 1000);
 });
 

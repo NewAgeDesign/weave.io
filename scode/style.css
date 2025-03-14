@@ -106,11 +106,81 @@ header{
     flex-direction: row;
     max-height: 10pt;
     position: fixed;
+    display: flex;
     z-index: 100;
     gap: 10pt;
     left: 0;
     top: 0;
     
+    nav{
+        background-color: var(--secondary3);
+        border-radius: 50pt;
+        align-items: center;
+        overflow-x: scroll;
+        max-width: 400pt;
+        padding: 6pt 8pt;
+        display: flex;
+        width: 100%;
+        gap: 6pt;
+
+        span{
+            box-shadow: inset 1.5px 0 0 0 var(--secondary2),
+                inset -1.5px 0 0 0 var(--secondary2),
+                inset 0 -1.5px 0 0 var(--secondary2),
+                inset 0 1.5px 0 0 var(--secondary2);
+            background-color: var(--secondary3);
+            display: inline-flex;
+            border-radius: 50pt;
+            align-items: center;
+            overflow-y: hidden;
+            position: relative;
+            padding: 4pt 8pt;
+            max-width: 72pt;
+            cursor: pointer;
+            font-size: 8pt;
+            width: 100%;
+            margin: 0;
+
+            icon{
+                color: var(--accent2);
+                position: absolute;
+                font-size: 12pt;
+                z-index: 11;
+                opacity: 0;
+                right: 4px;
+            }
+            p{
+                text-overflow: ellipsis; /* Adds "..." for overflow */
+                white-space: nowrap; /* Prevents wrapping */
+                overflow: hidden;    /* Hides overflowing text */
+                font-size: 8pt;
+                margin: 0; /* Removes default margins */
+            }
+
+            &:hover{
+                background-color: var(--secondary2);
+
+                &::after{
+                    background: linear-gradient(90deg, #00000000, var(--secondary2));
+                    
+                }
+                icon{
+                    opacity: 1;
+                }
+            }
+            &::after{
+                background: linear-gradient(90deg, #00000000, var(--secondary3));
+                border-radius: 0 25pt 25pt  0;
+                position: absolute;
+                height: 22px;
+                z-index: 10;
+                content: '';
+                width: 2rem;
+                right: 4px;
+                
+            }
+        }
+    }
     span{
         width: fit-content;
         display: flex;
@@ -137,11 +207,12 @@ header{
             border-radius: 50%;
             margin-left: -16px;
             position: relative;
+            aspect-ratio: 1/1;
             font-weight: bold;
             word-wrap: normal;
             font-size: 8pt;
             display: flex;
-            padding: 4pt;
+            width: 30px;
     
             &:first-child {
                 margin-left: 0;
@@ -486,11 +557,16 @@ header{
         .title{
             border-bottom: 1.5px solid var(--secondary2);
             justify-content: space-between;
-            padding-bottom: 12pt;
-            margin-bottom: 16px;
+            padding: 6pt 0 10pt 0;
+            margin: 16px 0 8px 0;
             align-items: center;
             display: flex;
             width: 100%;
+            
+            h3{
+                font-size: 20pt;
+                line-height: 0;
+            }
 
             *{
                 color: var(--accent2);
@@ -528,8 +604,6 @@ header{
                     position: absolute;
                     font-weight: 600;
                     margin: 0 auto;
-                    right: auto;
-                    left: 35%;
                 }
                 .item{
                     border: 1.5px solid var(--secondary2);

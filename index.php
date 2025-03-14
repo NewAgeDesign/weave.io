@@ -115,7 +115,13 @@
                     <img src="scode/bolt.svg" alt="scode/bolt.svg">
                     <b>WeaveIO</b>
                 </span>
-                <span></span>
+                <nav>
+                    <span><p>Items the one the one your son</p><icon class="close-tab">close</icon></span>
+                    <span>Items <icon class="close-tab">close</icon></span>
+                    <span>Items <icon class="close-tab">close</icon></span>
+                    <span>Items <icon class="close-tab">close</icon></span>
+                    <span>Items <icon class="close-tab">close</icon></span>
+                </nav>
                 <span class="members">
                     <span class="avatar" style="background-color:rgb(190, 46, 13);">AB</span>
                     <span class="avatar" style="background-color:rgb(19, 105, 180);">BC</span>
