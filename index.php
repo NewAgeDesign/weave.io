@@ -1,3 +1,18 @@
+<?php 
+session_start();
+
+if (isset($_GET['action']) && $_GET['action'] === 'joint') { // Ensure 'joint' is set in the URL
+    $join = $_GET['join'];
+    $link = "http://localhost/multicore/dev.weave.io/scode/function?action=joint&join=$join";
+
+    if (isset($_SESSION['email'])) { // Check if user is logged in
+        header("Location: $link"); 
+        exit(); // Ensure script stops after redirect
+    }
+}
+?>
+
+
 <!DOCTYPE html>
 <html>
     <head>

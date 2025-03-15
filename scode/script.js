@@ -19,7 +19,6 @@ function checkSession() {
             name.innerHTML = res.session.fname + ' ' + res.session.lname;
             role.innerHTML = 'Plan : <b>' + res.session.plan + '</b>';
             role.querySelector('b').style.backgroundColor = res.session.color;
-            setInterval(checkTeam, 3000);
         }
     });
     
@@ -29,10 +28,7 @@ function checkSession() {
         link();
         io.setupModal('add_team', 'teamOverlay', 'modal', 'closeModalBtn');
         io.setupModal('add_project', 'projectOverlay', 'modal', 'pcloseModalBtn', 'tid');
-        setInterval(() => {
-            checkTeam();
-            projects();
-        }, 1000);
+        uiUpdate();
     }, 5000);
 }
 function checkTeam() {
@@ -96,34 +92,33 @@ function checkTeam() {
             showTeamUI(selectedTeam.dataset.teamName);
         }
 
+        // Click event to handle team selection
+        document.addEventListener('click', function (event) {
+            let item = event.target.closest('.team .item'); // Ensure click is inside an item
+            if (item) {
+
+                // Remove 'selected' from all items
+                document.querySelectorAll('.team .item').forEach(i => i.classList.remove('selected'));
+
+                // Add 'selected' class to the clicked item
+                item.classList.add('selected');
+
+                // Save selected team in localStorage
+                let teamId = item.dataset.teamId;
+                let teamName = item.dataset.teamName;
+                localStorage.setItem('selectedTeam', teamId);
+
+                // Show team UI
+                showTeamUI(teamName, teamId);
+                projects();
+            }
+        });
 
         // Delete a team
-        del();
+        delTeam();
     });
 }
-
-// Click event to handle team selection
-document.addEventListener('click', function (event) {
-    let item = event.target.closest('.team .item'); // Ensure click is inside an item
-    if (item) {
-
-        // Remove 'selected' from all items
-        document.querySelectorAll('.team .item').forEach(i => i.classList.remove('selected'));
-
-        // Add 'selected' class to the clicked item
-        item.classList.add('selected');
-
-        // Save selected team in localStorage
-        let teamId = item.dataset.teamId;
-        let teamName = item.dataset.teamName;
-        localStorage.setItem('selectedTeam', teamId);
-
-        // Show team UI
-        showTeamUI(teamName, teamId);
-    }
-});
-
-function del() {
+function delTeam() {
     document.querySelectorAll('.team .del').forEach(btn => {
         btn.addEventListener('click', function() {
             let teamId = this.getAttribute('team-id');
@@ -136,6 +131,20 @@ function del() {
         });
     });
 }
+function uiUpdate() {
+    document.getElementById('teamOverlay').addEventListener('click', function(event) {
+        if (event.target.matches('#teamOverlay, .close-button')) { 
+            checkTeam(); 
+        }
+    });
+
+    document.getElementById('projectOverlay').addEventListener('click', function(event) {
+        if (event.target.matches('#projectOverlay, .close-button')) { 
+            projects(); 
+        }
+    });
+}
+
 
 // Function to display the selected team's name
 function showTeamUI(teamName) {
@@ -145,19 +154,20 @@ function showTeamUI(teamName) {
     }
 }
 let prevProjectsHTML = ""; // Store previous HTML state
-
 function projects() {
     let tid = localStorage.getItem('selectedTeam');
-    if(tid != 'null'){
-        io.in(ajax, get, 'scode/function.php', {action: 'projects', id : tid}, function(res) {
+    console.log(tid);
+    if (tid !== 'null' && tid !== null) {
+        io.in(ajax, get, 'scode/function.php', { action: 'projects', id: tid }, function (res) {
             let projects = res.projects;
             let pcontainer = document.querySelector('.project .selection');
+            console.log(projects);
 
             if (!projects || projects.length === 0) {
                 let emptyMessage = '<p>No projects Created, please create a project for your team.</p>';
-                if (pcontainer.innerHTML.trim() !== emptyMessage) {
-                    pcontainer.innerHTML = emptyMessage;
-                }
+                pcontainer.innerHTML = emptyMessage; // Ensure it updates the DOM
+                prevProjectsHTML = emptyMessage; // Store the empty state
+                return; // Stop further execution
             }
 
             let pList = projects.map(p => {
@@ -182,11 +192,38 @@ function projects() {
                 attachDeleteListeners(); // Reattach delete event listeners
             }
         });
-        
+
         io.setupModal('add_project', 'projectOverlay', 'modal', 'pcloseModalBtn', 'tid');
+
+        let item = '.selection > .item';
+        openProject(item);
     }
 }
 
+function openProject(item) {
+    let projectItems = document.querySelectorAll(item);
+    projectItems.forEach(p => {
+        p.addEventListener('click', function() {
+            // Get the id attribute's value
+            let id = p.getAttribute('id'); 
+            if (!id) {
+                io.out(errorMotd, bad, 'ID Not Found', 'No project id was found');
+                return;
+            }
+
+            let data = {
+                action: 'addTab',  // "addTabs" in your PHP was "addTab" before, keep it consistent
+                id: id
+            };
+            console.log(data);
+
+            io.in(ajax, post, 'scode/function.php', data, function(res) {
+                console.log("Server response:", res);
+                // Handle response (maybe create a tab in the UI)
+            });
+        });
+    });
+}
 function attachDeleteListeners() {
     document.querySelectorAll('.delete').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -199,32 +236,35 @@ function attachDeleteListeners() {
         });
     });
 }
-
 function link() {
-    document.addEventListener('click', function (event) {
-        let selectedteam = localStorage.getItem('selectedTeam');
+    let addMemberBtn = document.getElementById('add_member');
+    
+    if (!addMemberBtn) return; // Ensure the button exists before proceeding
+    
+    addMemberBtn.addEventListener('click', function () {
+        let selectedTeam = localStorage.getItem('selectedTeam');
         
-        if (!selectedteam || selectedteam === 'null') {
+        if (!selectedTeam) { // Check for null, undefined, or empty string
+            io.out('errorMotd', 'bad', 'LC00 : No Team Selected', 'Please select a team first.');
             return;
         }
-    
-        // Check if the clicked element is the "add member" button
-        if (event.target && event.target.id === 'add_member') {
-            console.log("Sharing link for team:", selectedteam);
-    
-            io.in('ajax', 'get', 'scode/function.php', { action: 'share-link', id: selectedteam }, function (res) {
-                console.log(res.link)
-                if (res.link) {
-                    navigator.clipboard.writeText(res.link).then(() => {
-                        io.out('errorMotd', 'info', 'LC01 : Link Copied', 'Your Link has been copied to the clipboard.');
-                    }).catch(() => {
+
+        console.log("Sharing link for team:", selectedTeam);
+
+        io.in(ajax, get, 'scode/function.php', { action: 'share-link', id: selectedTeam }, function (res) {
+            if (res.link) {
+                navigator.clipboard.writeText(res.link)
+                    .then(() => {
+                        io.out('errorMotd', 'info', 'LC01 : Link Copied', 'Your link has been copied to the clipboard.');
+                    })
+                    .catch(err => {
+                        console.error('Clipboard error:', err);
                         io.out('errorMotd', 'bad', 'LC02 : Copy Failed', 'Failed to copy invite link.');
                     });
-                } else {
-                    io.out('errorMotd', 'bad', 'LC03 : AJAX Error', 'Failed to generate invite link.');
-                }
-            });
-        }
+            } else {
+                io.out('errorMotd', 'bad', 'LC03 : AJAX Error', 'Failed to generate invite link.');
+            }
+        });
     });
 }
 

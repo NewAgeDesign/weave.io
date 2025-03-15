@@ -331,12 +331,36 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
             }
 
             $stmt->close(); // ✅ Ensure statement is closed
-            break;
+        break;
         
         case $data['action'] === 'addTab':
-            $projName = basename(trim($data['name']));
-            tabses('add', $projName, $res);
+        
+            $id = trim($data['id']);
+            $email = $_SESSION['email'];
+        
+            // Use prepared statements to prevent SQL injection
+            $stmt = $conn->prepare("SELECT * FROM user_tabs WHERE projectid = ? AND email = ?");
+            $stmt->bind_param("is", $id, $email);
+            $stmt->execute();
+            $result = $stmt->get_result();
+        
+            if ($result->num_rows > 0) { 
+                errorm($res, 'info', 'CT01: The Tab already exists', 'You\'ve already opened this tab, please access it in the top navbar');
+                exit();
+            }
+        
+            // Insert tab if it doesn't exist
+            $stmt = $conn->prepare("INSERT INTO user_tabs (email, projectid) VALUES (?, ?)");
+            $stmt->bind_param("si", $email, $id);
+            
+            if ($stmt->execute()) {
+                exit();
+            } else {
+                errorm($res, 'bad', 'DB01: Failed to insert tab', $stmt->error);
+            }
+        
         break;
+            
 
         case $data['action'] === 'removeTab':
             $projName = basename(trim($data['name']));
@@ -354,27 +378,29 @@ else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         break;
 
         case 'teams':
-            // Fetch teams from the database
-            $query = "SELECT * FROM team";
-            $result = $conn->query($query);
+            $email = $_SESSION['email']; // Get the logged-in user's email
 
-            $teams = []; // Array to store team data
+            // Fetch teams where the user is the owner OR a member
+            $query = "SELECT DISTINCT t.teamid, t.name, t.descr, t.owemail 
+                    FROM team t
+                    LEFT JOIN tmembers m ON t.teamid = m.teamid
+                    WHERE t.owemail = ? OR m.uemail = ?";
 
-            if ($result) {
-                if ($result->num_rows > 0) {
-                    // Fetch each team row and build the response
-                    while ($row = $result->fetch_assoc()) {
-                        $teams[] = [
-                            'id' => $row['teamid'],
-                            'name' => $row['name'],
-                            'descr' => $row['descr'],
-                            'owemail' => $row['owemail']
-                        ];
-                    }
-                }
-            } else {
-                errorm($res, 'bad', 'Error', 'Database query failed: ' . $conn->error);
+            $stmt = $conn->prepare($query);
+            $stmt->bind_param("ss", $email, $email);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            $teams = [];
+            while ($row = $result->fetch_assoc()) {
+                $teams[] = [
+                    'id' => $row['teamid'],
+                    'name' => $row['name'],
+                    'descr' => $row['descr'],
+                    'owemail' => $row['owemail']
+                ];
             }
+
 
             $res['teams'] = $teams;
         break;
@@ -425,6 +451,30 @@ else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 
         break;
+        case 'projects':
+            // Query to fetch project details
+            $tid = intval($_GET['id']);
+            $query = "SELECT * FROM project WHERE teamid = $tid";
+            $result = $conn->query($query);
+
+            $projects = []; // Array to store project data
+            if ($result) {
+                if ($result->num_rows > 0) {
+                    // Fetch each team row and build the response
+                    while ($row = $result->fetch_assoc()) {
+                        $projects[] = [
+                            'id' => $row['id'],
+                            'name' => $row['name'],
+                            'descr' => $row['description']
+                        ];
+                    }
+                }
+            } else {
+                errorm($res, 'bad', 'Error', 'Database query failed: ' . $conn->error);
+            }
+            $res['projects'] = $projects;
+        break;
+
 
         case 'delete-project':
             $projectId = intval($_GET['id']);
@@ -448,28 +498,23 @@ else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
         break;
 
-        case 'projects':
-            // Query to fetch project details
+        case 'share-link':
             $tid = intval($_GET['id']);
-            $query = "SELECT * FROM project WHERE teamId = $tid";
+            $query = "SELECT * FROM team WHERE teamId = $tid";
             $result = $conn->query($query);
-
-            $projects = []; // Array to store project data
+        
+            $link = null; // Initialize the variable
+        
             if ($result) {
                 if ($result->num_rows > 0) {
-                    // Fetch each team row and build the response
-                    while ($row = $result->fetch_assoc()) {
-                        $projects[] = [
-                            'id' => $row['id'],
-                            'name' => $row['name'],
-                            'descr' => $row['description']
-                        ];
-                    }
+                    $row = $result->fetch_assoc(); // Get first row only
+                    $link = "http://localhost/multicore/dev.weave.io/index?action=joint&join=" . $row['invite_link'];
                 }
             } else {
                 errorm($res, 'bad', 'Error', 'Database query failed: ' . $conn->error);
             }
-            $res['projects'] = $projects;
+        
+            $res['link'] = $link;
         break;
 
         case 'tabs':
