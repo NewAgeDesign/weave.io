@@ -332,9 +332,8 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
 
             $stmt->close(); // ✅ Ensure statement is closed
         break;
-        
+
         case $data['action'] === 'addTab':
-        
             $id = trim($data['id']);
             $email = $_SESSION['email'];
         
@@ -346,6 +345,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
         
             if ($result->num_rows > 0) { 
                 errorm($res, 'info', 'CT01: The Tab already exists', 'You\'ve already opened this tab, please access it in the top navbar');
+                echo json_encode($res);
                 exit();
             }
         
@@ -354,22 +354,47 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
             $stmt->bind_param("si", $email, $id);
             
             if ($stmt->execute()) {
+                errorm($res, 'info', 'CT02: Tab created successfully', 'Please select the specified tab to gain access to your project');
+                echo json_encode($res);
                 exit();
             } else {
-                errorm($res, 'bad', 'DB01: Failed to insert tab', $stmt->error);
+                errorm($res, 'bad', 'DB01: Failed to insert tab', 'Failed to insert tab in the database. Error: ' . $stmt->error);
+            }
+        
+            errorm($res, 'info', 'It works', $id . ' ' . $email);
+
+        break;
+        
+        case $data['action'] === 'closetab':
+            $id = trim($data['id']);
+            $email = $_SESSION['email'];
+        
+            // Use prepared statements to prevent SQL injection
+            $stmt = $conn->prepare("SELECT * FROM user_tabs WHERE projectid = ? AND email = ?");
+            $stmt->bind_param("is", $id, $email);
+            $stmt->execute();
+            $result = $stmt->get_result();
+        
+            if ($result->num_rows > 0) { 
+                // Use prepared statements to delete the tab
+                $stmt = $conn->prepare("DELETE FROM user_tabs WHERE projectid = ? AND email = ?");
+                $stmt->bind_param("is", $id, $email);
+                $stmt->execute();
+        
+                if ($stmt->affected_rows > 0) { // ✅ Check if the deletion was successful
+                    errorm($res, 'info', 'CE01: Tab removed successfully', 'The tab was successfully removed.');
+                } else {
+                    errorm($res, 'bad', 'CE02: Tab removal failed', 'No tab was deleted.');
+                }
+            } else {
+                errorm($res, 'bad', 'CE03: Tab not found', 'The tab does not exist or does not belong to you.');
             }
         
         break;
-            
-
-        case $data['action'] === 'removeTab':
-            $projName = basename(trim($data['name']));
-            tabses('remove', $projName, $res);
-        break;
+        
     }
 }
 else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    
     switch ($_GET['action']) {
         case 'session':
             $res['session'] = isset($_SESSION['email'], $_SESSION['fname'], $_SESSION['lname'], $_SESSION['plan'], $_SESSION['color']) 
@@ -516,48 +541,36 @@ else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         
             $res['link'] = $link;
         break;
-
-        case 'tabs':
-            if (!isset($_SESSION['tab'])) {
-                $_SESSION['tab'] = []; // Initialize empty tabs array if not set
+        case 'fetch_tabs':
+            if (!isset($_SESSION['email'])) {
+                $res['error'] = "User not authenticated.";
+                break;
             }
         
-            $tabs = []; // Prepare an array to store tab data
-            foreach ($_SESSION['tab'] as $tabName) {
+            $email = $_SESSION['email'];
+        
+            // Use prepared statements to prevent SQL injection
+            $query = $conn->prepare("
+                SELECT user_tabs.projectid, project.name 
+                FROM user_tabs 
+                INNER JOIN project ON user_tabs.projectid = project.id 
+                WHERE user_tabs.email = ?
+            ");
+        
+            $query->bind_param('s', $email);
+            $query->execute();
+            $result = $query->get_result();
+        
+            $tabs = [];
+            while ($row = $result->fetch_assoc()) {
                 $tabs[] = [
-                    'tabs' => [
-                        'name' => $tabName
-                    ]
+                    'id' => $row['projectid'],
+                    'name' => $row['name']
                 ];
             }
         
-            // Merge tabs into the response
-            $res = array_merge($res, $tabs);
-        
-            // Return JSON response
-            header('Content-Type: application/json');
-            echo json_encode($res);
-        exit; // Ensure no additional output
-
-        case 'directories':
-            $projectName = $_GET['name'] ?? null;
-
-            if ($projectName) {
-                $projectPath = PROJECT . '/' . $projectName;
-        
-                if (is_dir($projectPath)) {
-                    $directories = fetchDirectories($projectPath);
-                    header('Content-Type: application/json');
-                    echo json_encode(['directories' => $directories]);
-                } else {
-                    // Project not found
-                    errorm($res, 'bad', 'DIR01: Project Not Found (404)', "The project '$projectName' does not exist.");
-                }
-            } else {
-                // Project name not specified
-                errorm($res, 'bad', 'DIR02: Missing Project Name (400)', 'No project name was specified in the request.');
-            }
-        exit;
+            $res['tabs'] = $tabs;
+        break;
             
         default:
             errorm($res, 'bad', 'Error', "Unsupported action: {$_GET['action']}");

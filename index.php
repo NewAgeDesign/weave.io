@@ -131,11 +131,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'joint') { // Ensure 'joint' i
                     <b>WeaveIO</b>
                 </span>
                 <nav>
-                    <span><p>Items the one the one your son</p><icon class="close-tab">close</icon></span>
-                    <span>Items <icon class="close-tab">close</icon></span>
-                    <span>Items <icon class="close-tab">close</icon></span>
-                    <span>Items <icon class="close-tab">close</icon></span>
-                    <span>Items <icon class="close-tab">close</icon></span>
                 </nav>
                 <span class="members">
                     <span class="avatar" style="background-color:rgb(190, 46, 13);">AB</span>
@@ -146,7 +141,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'joint') { // Ensure 'joint' i
                 </span>
 
             </header>
-            <main class="dash">
+            <span class="dash">
                 <span class="lpanel">
                     <span class="top">
                         <span class="user">
@@ -220,7 +215,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'joint') { // Ensure 'joint' i
                 </span>
                 <span class="projects">
                 </span>
-            </main>
+            </span>
         </section>
     </body>
     <script type="module" src="scode/script.js"></script>

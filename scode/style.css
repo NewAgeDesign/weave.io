@@ -113,14 +113,13 @@ header{
     top: 0;
     
     nav{
-        background-color: var(--secondary3);
         border-radius: 50pt;
         align-items: center;
         overflow-x: scroll;
+        width: fit-content;
         max-width: 400pt;
         padding: 6pt 8pt;
         display: flex;
-        width: 100%;
         gap: 6pt;
 
         span{
@@ -614,7 +613,7 @@ header{
                     position: relative;
                     border-radius: 4pt;
                     aspect-ratio: 16/9;
-                    height: 140px;
+                    height: 120px;
 
                     &:last-child{
                         justify-self: left;

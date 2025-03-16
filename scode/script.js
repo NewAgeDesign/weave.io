@@ -21,19 +21,12 @@ function checkSession() {
             role.querySelector('b').style.backgroundColor = res.session.color;
         }
     });
-    
-    setTimeout(() => {
-        checkTeam();
-        projects();
-        link();
-        io.setupModal('add_team', 'teamOverlay', 'modal', 'closeModalBtn');
-        io.setupModal('add_project', 'projectOverlay', 'modal', 'pcloseModalBtn', 'tid');
-        uiUpdate();
-    }, 5000);
 }
+
+//✅ Functions for teams
 function checkTeam() {
     let savedTeamId = localStorage.getItem('selectedTeam');
-    io.in('ajax', 'get', 'scode/function.php', { action: 'teams' }, function (res) {
+    io.in(ajax, get, 'scode/function.php', { action: 'teams' }, function (res) {
         let teamContainer = document.querySelector('.team');
         if (!teamContainer) {
             console.error("Error: .team container not found in the DOM.");
@@ -131,10 +124,14 @@ function delTeam() {
         });
     });
 }
+// End of Teams function
+
+//✅ Function for Updating UI based on form submission
 function uiUpdate() {
     document.getElementById('teamOverlay').addEventListener('click', function(event) {
         if (event.target.matches('#teamOverlay, .close-button')) { 
             checkTeam(); 
+            projects(); 
         }
     });
 
@@ -144,15 +141,19 @@ function uiUpdate() {
         }
     });
 }
+// End of UI update
 
 
-// Function to display the selected team's name
+//✅ Function to display the selected team's name in the dashboard
 function showTeamUI(teamName) {
     let teamTitle = document.querySelector('.projects .title h3');
     if (teamTitle) {
         teamTitle.innerText = teamName; // Display the team name instead of the ID
     }
 }
+// End of Name Update, though something tells me this could have been better if all of it were to load at the same time.
+
+//✅ Functions for displaying Project UI with components
 let prevProjectsHTML = ""; // Store previous HTML state
 function projects() {
     let tid = localStorage.getItem('selectedTeam');
@@ -195,47 +196,59 @@ function projects() {
 
         io.setupModal('add_project', 'projectOverlay', 'modal', 'pcloseModalBtn', 'tid');
 
-        let item = '.selection > .item';
-        openProject(item);
     }
 }
+// End of project function
 
-function openProject(item) {
-    let projectItems = document.querySelectorAll(item);
-    projectItems.forEach(p => {
-        p.addEventListener('click', function() {
-            // Get the id attribute's value
-            let id = p.getAttribute('id'); 
-            if (!id) {
-                io.out(errorMotd, bad, 'ID Not Found', 'No project id was found');
-                return;
-            }
-
-            let data = {
-                action: 'addTab',  // "addTabs" in your PHP was "addTab" before, keep it consistent
-                id: id
-            };
-            console.log(data);
-
-            io.in(ajax, post, 'scode/function.php', data, function(res) {
-                console.log("Server response:", res);
-                // Handle response (maybe create a tab in the UI)
-            });
-        });
-    });
-}
+//✅ Function for deleting project from the database
 function attachDeleteListeners() {
     document.querySelectorAll('.delete').forEach(btn => {
         btn.addEventListener('click', function() {
             let projectId = this.getAttribute('data-id');
             if (confirm("Are you sure you want to delete this project?")) {
                 io.in(ajax, get, 'scode/function.php', {action: 'delete-project', id: projectId}, function(res) {
+                    openProject('.selection > .item');
                     projects(); // Refresh the projects list
                 });
             }
         });
     });
 }
+// End of that function
+
+//✅ Function for opening project tabs, these are in the header
+function openProject(item) {
+    let projectItems = document.querySelectorAll(item);
+
+    if (projectItems.length === 0) {
+        console.warn("No project items found for selector:", item);
+        return;
+    }
+
+    projectItems.forEach(p => {
+        if (!p) return; // Skip null/undefined elements
+
+        console.log(p); // Debugging
+
+        p.addEventListener('click', function() {
+            console.log('it works');
+
+            let id = p.getAttribute('id'); 
+            if (!id) {
+                io.out(errorMotd, bad , 'ID Not Found', 'No project id was found');
+                return;
+            }
+            let data = { action: 'addTab', id: id}
+
+            io.in(ajax, post, 'scode/function.php', data, function(res) {
+            });
+            fetchTabs(); // Refresh tabs after closing one
+        });
+    });
+}
+// End of that function
+
+//✅ Function for collaboration Link to a team.
 function link() {
     let addMemberBtn = document.getElementById('add_member');
     
@@ -267,8 +280,72 @@ function link() {
         });
     });
 }
+// End of this function
 
+//✅ Function for fetching and render tabs dynamically
+function fetchTabs() {
+    console.log("this is running");
+    io.in(ajax, 'get', 'scode/function.php', { action: 'fetch_tabs' }, function (res) {
+        let nav = document.querySelector('header nav');
+        
+        if (!res.tabs || res.tabs.length === 0) {
+            nav.innerHTML = '';
+            return;
+        }
+        
+        let tabsHTML = res.tabs.map(tab => `
+            <span data-tab-id="${tab.id}">
+                <p>${tab.name}</p>
+                <icon class="close-tab" data-id="${tab.id}">close</icon>
+            </span>
+        `).join('');
+        
+        nav.innerHTML = tabsHTML;
+        attachTabListeners();
+    });
+}
+// End of this function
+
+//✅ Function to attach event listeners to close buttons
+function attachTabListeners() {
+    document.querySelectorAll('nav .close-tab').forEach(icon => {
+        icon.addEventListener('click', function () {
+            let tabId = this.getAttribute('data-id');
+            closeTab(tabId);
+        });
+    });
+}
+//✅ Function to close my tabs.
+function closeTab(tabId) {
+    let data = { action: 'closetab', id: tabId };
+    
+    io.in(ajax, 'post', 'scode/function.php', data, function (res) {
+        if (res) {
+            fetchTabs(); // Refresh tabs after closing one
+        } else {
+            console.error('Error closing tab:', res.message || 'Unknown error');
+        }
+    }, function (err) {
+        console.error('AJAX request failed:', err);
+    });
+}
+// End of this function
+
+//✅ Where all my code is running
 document.addEventListener('DOMContentLoaded', function () {
     checkSession();
+    
+    setTimeout(() => {
+        checkTeam();
+        projects();
+        setTimeout(() => {
+            io.setupModal('add_team', 'teamOverlay', 'modal', 'closeModalBtn');
+            io.setupModal('add_project', 'projectOverlay', 'modal', 'pcloseModalBtn', 'tid');
+            fetchTabs();
+            link();
+            openProject('.selection > .item');
+        }, 500);
+        uiUpdate();
+    }, 3000);
 });
 
