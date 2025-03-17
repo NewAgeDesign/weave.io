@@ -126,7 +126,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'joint') { // Ensure 'joint' i
         <!-- APP SECTION (Dashboard) -->
         <section class="app">
             <header>
-                <span>
+                <span class="home">
                     <img src="scode/bolt.svg" alt="scode/bolt.svg">
                     <b>WeaveIO</b>
                 </span>
@@ -215,6 +215,21 @@ if (isset($_GET['action']) && $_GET['action'] === 'joint') { // Ensure 'joint' i
                 </span>
                 <span class="projects">
                 </span>
+            </span>
+            <span class="workspace">
+                <span class="toolbar"></span>
+                <span class="lpanel">
+                    <span class="top">
+                        <span class="user">
+                        </span>
+                        <span class="teams">
+                        </span>
+                    </span>
+
+                    <icon id="logout">logout <p>Logout</p></icon>
+                </span>
+                <span class="viewport"></span>
+                <span class="rpanel"></span>
             </span>
         </section>
     </body>

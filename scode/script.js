@@ -330,8 +330,37 @@ function closeTab(tabId) {
     });
 }
 // End of this function
+function systemNav() {
+    console.log('systemNav initialized!');
+    let dash = document.querySelector('.app .dash');
+    let workspace = document.querySelector('.app .workspace');
 
-//✅ Where all my code is running
+    // Show the last stored view immediately
+    let currentView = localStorage.getItem('view') || 'dash';
+    dash.style.display = (currentView === 'dash') ? 'flex' : 'none';
+    workspace.style.display = (currentView === 'workspace') ? 'flex' : 'none';
+
+    document.addEventListener('click', function (event) {
+        console.log('Click detected:', event.target);
+
+        if (event.target.closest('.home')) {
+            console.log('Home was selected');
+            localStorage.setItem('view', 'dash');
+            dash.style.display = 'flex';
+            workspace.style.display = 'none';  // ❌ Hide workspace
+        }
+        if (event.target.closest('nav span[data-tab-id]')) {
+            console.log('Tab was selected');
+            localStorage.setItem('view', 'workspace');
+            workspace.style.display = 'flex';
+            dash.style.display = 'none';  // ❌ Hide dash
+        }
+    });
+}
+
+
+
+//✅ Where all my code is running (Without being triggered)
 document.addEventListener('DOMContentLoaded', function () {
     checkSession();
     
@@ -344,6 +373,7 @@ document.addEventListener('DOMContentLoaded', function () {
             fetchTabs();
             link();
             openProject('.selection > .item');
+            systemNav();
         }, 500);
         uiUpdate();
     }, 3000);

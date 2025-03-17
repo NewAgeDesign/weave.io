@@ -308,11 +308,14 @@ header{
 .app{
     height: 100dvh;
     width: 100%;
+    .home{
+        cursor: pointer;
+    }
 }
-.dash{
+.dash, .workspace{
     flex-direction: row;
     height: 100dvh;
-    display: flex;
+    display: none;
     padding: 4pt;
     width: 100%;
     gap: 4pt;
