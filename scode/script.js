@@ -21,6 +21,36 @@ function checkSession() {
             role.querySelector('b').style.backgroundColor = res.session.color;
         }
     });
+
+    
+    let nav, team, project;
+    nav = document.querySelector('header nav');
+    team = document.querySelector('.team');
+    project = document.querySelector('.selection');
+    
+    setTimeout(() => {
+        if (team) {
+            checkTeam();
+            io.setupModal('add_team', 'teamOverlay', 'modal', 'closeModalBtn');
+            uiUpdate();
+        }
+        if (nav) {
+            fetchTabs();
+            systemNav();
+            openProject('.selection > .item');
+            uiUpdate();
+        }
+        if (project) {
+            projects();
+            io.setupModal('add_project', 'projectOverlay', 'modal', 'pcloseModalBtn', 'tid');
+        }
+
+        setTimeout(() => {
+            openProject('.selection > .item');
+            link();
+        }, 500);
+        
+    }, 3000);
 }
 
 //✅ Functions for teams
@@ -32,7 +62,6 @@ function checkTeam() {
             console.error("Error: .team container not found in the DOM.");
             return;
         }
-        
 
         let teams = res.teams || [];
         let existingTeams = Array.from(teamContainer.children).map(t => t.dataset.teamId);
@@ -43,11 +72,11 @@ function checkTeam() {
 
         let projectdash = document.querySelector('.projects');
 
-        // Update only if there's a change
+        // If teams list is empty
         if (teams.length === 0) {
             teamContainer.innerHTML = '<p>No Teams Created</p>';
-            projectdash.innerHTML = '';
-            if(savedTeamId !== null){
+            projectdash.innerHTML = ''; // Clear projects
+            if (savedTeamId !== null) {
                 localStorage.setItem('selectedTeam', null);
             }
         } else {
@@ -60,19 +89,23 @@ function checkTeam() {
                 </span>
             `).join('');
 
-            projectdash.innerHTML = `
-                <span class="title">
-                    <h3></h3>
-                    <span>
-                        <icon class="add_project" id="add_project" title="Create Project">add</icon>
-                        <icon class="add_member" id="add_member" title="Add Member">link</icon>
+            if (!document.querySelector('.projects .selection')) {
+                // Only update projects if they don't exist already
+                projectdash.innerHTML = `
+                    <span class="title">
+                        <h3></h3>
+                        <span>
+                            <icon class="add_project" id="add_project" title="Create Project">add</icon>
+                            <icon class="add_member" id="add_member" title="Add Member">link</icon>
+                        </span>
                     </span>
-                </span>
-                <span class="project">
-                    <h5>Projects</h5>
-                    <span class="selection"></span>
-                </span>
-            `;
+                    <span class="project">
+                        <h5>Projects</h5>
+                        <span class="selection"></span>
+                    </span>
+                `;
+                projects(); // Ensure projects() runs when first setting up
+            }
         }
 
         // Get saved team from localStorage
@@ -89,28 +122,22 @@ function checkTeam() {
         document.addEventListener('click', function (event) {
             let item = event.target.closest('.team .item'); // Ensure click is inside an item
             if (item) {
-
-                // Remove 'selected' from all items
                 document.querySelectorAll('.team .item').forEach(i => i.classList.remove('selected'));
-
-                // Add 'selected' class to the clicked item
                 item.classList.add('selected');
 
-                // Save selected team in localStorage
                 let teamId = item.dataset.teamId;
                 let teamName = item.dataset.teamName;
                 localStorage.setItem('selectedTeam', teamId);
 
-                // Show team UI
                 showTeamUI(teamName, teamId);
-                projects();
+                projects(); // Run projects only when a team is selected
             }
         });
 
-        // Delete a team
         delTeam();
     });
 }
+
 function delTeam() {
     document.querySelectorAll('.team .del').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -127,20 +154,22 @@ function delTeam() {
 // End of Teams function
 
 //✅ Function for Updating UI based on form submission
+// ✅ Function for Updating UI based on form submission
 function uiUpdate() {
-    document.getElementById('teamOverlay').addEventListener('click', function(event) {
+    document.getElementById('teamOverlay').addEventListener('click', function (event) {
         if (event.target.matches('#teamOverlay, .close-button')) { 
             checkTeam(); 
-            projects(); 
+            projects(); // Ensure projects load after teams are updated
         }
     });
 
-    document.getElementById('projectOverlay').addEventListener('click', function(event) {
+    document.getElementById('projectOverlay').addEventListener('click', function (event) {
         if (event.target.matches('#projectOverlay, .close-button')) { 
             projects(); 
         }
     });
 }
+
 // End of UI update
 
 
@@ -358,24 +387,7 @@ function systemNav() {
     });
 }
 
-
-
 //✅ Where all my code is running (Without being triggered)
 document.addEventListener('DOMContentLoaded', function () {
     checkSession();
-    
-    setTimeout(() => {
-        checkTeam();
-        projects();
-        setTimeout(() => {
-            io.setupModal('add_team', 'teamOverlay', 'modal', 'closeModalBtn');
-            io.setupModal('add_project', 'projectOverlay', 'modal', 'pcloseModalBtn', 'tid');
-            fetchTabs();
-            link();
-            openProject('.selection > .item');
-            systemNav();
-        }, 500);
-        uiUpdate();
-    }, 3000);
 });
-
