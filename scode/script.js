@@ -1,3 +1,4 @@
+import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.5/dist/tweakpane.min.js';
 function checkSession() {
     io.in('ajax', 'get', 'scode/function.php', { action: 'session' }, function (res) {
 
@@ -39,6 +40,7 @@ function checkSession() {
             systemNav();
             openProject('.selection > .item');
             uiUpdate();
+            viewport();
         }
         if (project) {
             projects();
@@ -59,7 +61,6 @@ function checkTeam() {
     io.in(ajax, get, 'scode/function.php', { action: 'teams' }, function (res) {
         let teamContainer = document.querySelector('.team');
         if (!teamContainer) {
-            console.error("Error: .team container not found in the DOM.");
             return;
         }
 
@@ -142,7 +143,6 @@ function delTeam() {
     document.querySelectorAll('.team .del').forEach(btn => {
         btn.addEventListener('click', function() {
             let teamId = this.getAttribute('team-id');
-            console.log(teamId)
             if (confirm("All team members and projects will be removed permanently, are you sure you want to delete this team item?")) {
                 io.in(ajax, get, 'scode/function.php', {action: 'delete-team', id: teamId}, function(res) {
                     checkTeam(); // Refresh the projects list
@@ -186,12 +186,10 @@ function showTeamUI(teamName) {
 let prevProjectsHTML = ""; // Store previous HTML state
 function projects() {
     let tid = localStorage.getItem('selectedTeam');
-    console.log(tid);
     if (tid !== 'null' && tid !== null) {
         io.in(ajax, get, 'scode/function.php', { action: 'projects', id: tid }, function (res) {
             let projects = res.projects;
             let pcontainer = document.querySelector('.project .selection');
-            console.log(projects);
 
             if (!projects || projects.length === 0) {
                 let emptyMessage = '<p>No projects Created, please create a project for your team.</p>';
@@ -250,17 +248,13 @@ function openProject(item) {
     let projectItems = document.querySelectorAll(item);
 
     if (projectItems.length === 0) {
-        console.warn("No project items found for selector:", item);
         return;
     }
 
     projectItems.forEach(p => {
         if (!p) return; // Skip null/undefined elements
 
-        console.log(p); // Debugging
-
         p.addEventListener('click', function() {
-            console.log('it works');
 
             let id = p.getAttribute('id'); 
             if (!id) {
@@ -291,8 +285,6 @@ function link() {
             return;
         }
 
-        console.log("Sharing link for team:", selectedTeam);
-
         io.in(ajax, get, 'scode/function.php', { action: 'share-link', id: selectedTeam }, function (res) {
             if (res.link) {
                 navigator.clipboard.writeText(res.link)
@@ -300,7 +292,6 @@ function link() {
                         io.out('errorMotd', 'info', 'LC01 : Link Copied', 'Your link has been copied to the clipboard.');
                     })
                     .catch(err => {
-                        console.error('Clipboard error:', err);
                         io.out('errorMotd', 'bad', 'LC02 : Copy Failed', 'Failed to copy invite link.');
                     });
             } else {
@@ -313,7 +304,6 @@ function link() {
 
 //✅ Function for fetching and render tabs dynamically
 function fetchTabs() {
-    console.log("this is running");
     io.in(ajax, 'get', 'scode/function.php', { action: 'fetch_tabs' }, function (res) {
         let nav = document.querySelector('header nav');
         
@@ -359,10 +349,16 @@ function closeTab(tabId) {
     });
 }
 // End of this function
+
+//app navigator
 function systemNav() {
-    console.log('systemNav initialized!');
     let dash = document.querySelector('.app .dash');
     let workspace = document.querySelector('.app .workspace');
+
+    // Ensure elements exist before accessing them
+    if (!dash || !workspace) {
+        return;
+    }
 
     // Show the last stored view immediately
     let currentView = localStorage.getItem('view') || 'dash';
@@ -370,24 +366,348 @@ function systemNav() {
     workspace.style.display = (currentView === 'workspace') ? 'flex' : 'none';
 
     document.addEventListener('click', function (event) {
-        console.log('Click detected:', event.target);
 
+        // Handle home button click
         if (event.target.closest('.home')) {
-            console.log('Home was selected');
             localStorage.setItem('view', 'dash');
             dash.style.display = 'flex';
-            workspace.style.display = 'none';  // ❌ Hide workspace
+            workspace.style.display = 'none'; // Hide workspace
         }
-        if (event.target.closest('nav span[data-tab-id]')) {
-            console.log('Tab was selected');
+
+        // Handle tab selection inside the nav
+        let tab = event.target.closest('nav span[data-tab-id]');
+        if (tab) {
+            let pid = tab.getAttribute('data-tab-id'); // Corrected this line
             localStorage.setItem('view', 'workspace');
             workspace.style.display = 'flex';
-            dash.style.display = 'none';  // ❌ Hide dash
+            dash.style.display = 'none'; // Hide dash
         }
+    });
+}
+function viewport() {
+    const viewport = document.querySelector(".viewport");
+    const canvas = document.querySelector(".canvas-wrapper");
+    let scale = 1, offsetX = 0, offsetY = 0;
+    let isPanning = false, startX, startY;
+    let lastPanX = 0, lastPanY = 0, lastScale = 1;
+    let rulers = document.createElement("div");
+    rulers.classList.add("rulers");
+    viewport.appendChild(rulers);
+
+    // Restore saved pan & zoom
+    const savedState = JSON.parse(localStorage.getItem("viewportState"));
+    if (savedState) {
+        scale = lastScale = savedState.scale;
+        offsetX = lastPanX = savedState.offsetX;
+        offsetY = lastPanY = savedState.offsetY;
+        updateTransform();
+    }
+
+    function updateTransform() {
+        canvas.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+    }
+
+    function saveState() {
+        localStorage.setItem("viewportState", JSON.stringify({ scale, offsetX, offsetY }));
+    }
+
+    viewport.addEventListener("wheel", function (e) {
+        e.preventDefault();
+        let zoomFactor = 1.1;
+        let mouseX = e.clientX - viewport.offsetLeft;
+        let mouseY = e.clientY - viewport.offsetTop;
+        
+        let newScale = e.deltaY > 0 ? scale / zoomFactor : scale * zoomFactor;
+        newScale = Math.max(0.2, Math.min(newScale, 3));
+
+        offsetX = mouseX - ((mouseX - offsetX) * (newScale / scale));
+        offsetY = mouseY - ((mouseY - offsetY) * (newScale / scale));
+
+        scale = newScale;
+        updateTransform();
+        saveState();
+    });
+
+    viewport.addEventListener("mousedown", function (e) {
+        isPanning = true;
+        startX = e.clientX - offsetX;
+        startY = e.clientY - offsetY;
+        viewport.style.cursor = "grabbing";
+    });
+
+    viewport.addEventListener("mousemove", function (e) {
+        if (!isPanning) return;
+        offsetX = e.clientX - startX;
+        offsetY = e.clientY - startY;
+        updateTransform();
+    });
+
+    viewport.addEventListener("mouseup", function () {
+        isPanning = false;
+        viewport.style.cursor = "grab";
+        saveState();
+    });
+
+    viewport.addEventListener("dblclick", function () {
+        scale = 1;
+        offsetX = offsetY = 0;
+        updateTransform();
+        saveState();
+    });
+
+    function createRulers() {
+        rulers.innerHTML = '';
+        const topRuler = document.createElement("div");
+        const leftRuler = document.createElement("div");
+        topRuler.classList.add("top-ruler");
+        leftRuler.classList.add("left-ruler");
+        rulers.appendChild(topRuler);
+        rulers.appendChild(leftRuler);
+    }
+
+    function createGuide(x, y, type) {
+        const guide = document.createElement("div");
+        guide.classList.add("guide", type);
+        if (type === "horizontal") {
+            guide.style.top = `${y}px`;
+        } else {
+            guide.style.left = `${x}px`;
+        }
+        rulers.appendChild(guide);
+    }
+
+    viewport.addEventListener("dblclick", function (e) {
+        if (e.shiftKey) {
+            createGuide(0, e.clientY - viewport.offsetTop, "horizontal");
+        } else {
+            createGuide(e.clientX - viewport.offsetLeft, 0, "vertical");
+        }
+    });
+    
+    function setupRulers() {
+        const viewport = document.querySelector(".viewport");
+        const canvas = document.querySelector(".canvas-wrapper");
+    
+        let hRuler = document.querySelector(".ruler-horizontal");
+        let vRuler = document.querySelector(".ruler-vertical");
+    
+        if (!hRuler) {
+            hRuler = document.createElement("div");
+            hRuler.classList.add("ruler-horizontal");
+            viewport.appendChild(hRuler);
+        }
+    
+        if (!vRuler) {
+            vRuler = document.createElement("div");
+            vRuler.classList.add("ruler-vertical");
+            viewport.appendChild(vRuler);
+        }
+    
+        function generateRulerMarks(scale = 1, offsetX = 0, offsetY = 0) {
+            hRuler.innerHTML = "";
+            vRuler.innerHTML = "";
+    
+            let step = 32 * scale; // 5rem (16px) * zoom scale
+    
+            // Horizontal Ruler
+            for (let x = -offsetX; x <= canvas.clientWidth - offsetX; x += step) {
+                let mark = document.createElement("div");
+                mark.classList.add("ruler-mark");
+                mark.style.left = `${x}px`;
+                mark.innerText = Math.round(x / scale);
+                hRuler.appendChild(mark);
+            }
+    
+            // Vertical Ruler
+            for (let y = -offsetY; y <= canvas.clientHeight - offsetY; y += step) {
+                let mark = document.createElement("div");
+                mark.classList.add("ruler-mark");
+                mark.style.top = `${y}px`;
+                mark.innerText = Math.round(y / scale);
+                vRuler.appendChild(mark);
+            }
+        }
+    
+        function syncRulers(scale = 1, offsetX = 0, offsetY = 0) {
+            hRuler.style.transform = `translateX(${offsetX}px) scaleX(${scale})`;
+            vRuler.style.transform = `translateY(${offsetY}px) scaleY(${scale})`;
+        }
+    
+        // Observer for canvas movement
+        new MutationObserver(() => {
+            const transform = canvas.style.transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)\s*scale\(([^)]+)\)/);
+            if (transform) {
+                let offsetX = parseFloat(transform[1]);
+                let offsetY = parseFloat(transform[2]);
+                let scale = parseFloat(transform[3]);
+    
+                generateRulerMarks(scale, offsetX, offsetY);
+                syncRulers(scale, offsetX, offsetY);
+            }
+        }).observe(canvas, { attributes: true, attributeFilter: ["style"] });
+    
+        // Initial setup
+        generateRulerMarks();
+    }
+    setupRulers();
+    createRulers();
+
+    function initializeToolbar() {
+        const toolbar = document.querySelector(".toolbar");
+        const canvas = document.querySelector(".canvas-wrapper");
+        let activeTool = "selection";
+    
+        const tools = {
+            selection: () => activateSelection(),
+            move: () => activateMoveTool(),
+            zoom: () => activateZoomTool(),
+            hand: () => activateHandTool(),
+            text: () => createTextElement(),
+            rectangle: () => createShape("rectangle"),
+            circle: () => createShape("circle"),
+            line: () => createShape("line"),
+            pen: () => activatePenTool(),
+            form: () => createFormElement(),
+            button: () => createInteractiveElement("button"),
+            toggle: () => createInteractiveElement("toggle")
+        };
+    
+        toolbar.addEventListener("click", (e) => {
+            if (e.target.dataset.tool) {
+                activeTool = e.target.dataset.tool;
+                tools[activeTool]?.();
+            }
+        });
+    
+        function activateSelection() {
+            canvas.style.cursor = "default";
+        }
+    
+        function activateMoveTool() {
+            canvas.style.cursor = "grab";
+        }
+    
+        function activateZoomTool() {
+            canvas.addEventListener("wheel", (e) => {
+                e.preventDefault();
+                let zoomFactor = 1.1;
+                let newScale = e.deltaY > 0 ? scale / zoomFactor : scale * zoomFactor;
+                scale = Math.max(0.2, Math.min(newScale, 3));
+                updateTransform();
+            });
+        }
+    
+        function activateHandTool() {
+            let isPanning = false;
+            canvas.addEventListener("mousedown", (e) => {
+                isPanning = true;
+                canvas.style.cursor = "grabbing";
+            });
+            canvas.addEventListener("mouseup", () => {
+                isPanning = false;
+                canvas.style.cursor = "grab";
+            });
+        }
+    
+        function createTextElement() {
+            const textElement = document.createElement("div");
+            textElement.contentEditable = true;
+            textElement.style.position = "absolute";
+            textElement.style.left = "50px";
+            textElement.style.top = "50px";
+            textElement.innerText = "Text here...";
+            canvas.appendChild(textElement);
+        }
+    
+        function createShape(shapeType) {
+            const shape = document.createElement("div");
+            shape.classList.add("shape", shapeType);
+            shape.style.position = "absolute";
+            shape.style.left = "100px";
+            shape.style.top = "100px";
+            if (shapeType === "rectangle") {
+                shape.style.width = "100px";
+                shape.style.height = "50px";
+                shape.style.backgroundColor = "blue";
+            } else if (shapeType === "circle") {
+                shape.style.width = "50px";
+                shape.style.height = "50px";
+                shape.style.borderRadius = "50%";
+                shape.style.backgroundColor = "red";
+            }
+            canvas.appendChild(shape);
+        }
+    
+        function activatePenTool() {
+            console.log("Pen tool activated");
+        }
+    
+        function createFormElement() {
+            const input = document.createElement("input");
+            input.type = "text";
+            input.placeholder = "Enter text...";
+            input.style.position = "absolute";
+            input.style.left = "100px";
+            input.style.top = "100px";
+            canvas.appendChild(input);
+        }
+    
+        function createInteractiveElement(type) {
+            const element = document.createElement("button");
+            element.innerText = type === "toggle" ? "Toggle" : "Button";
+            element.style.position = "absolute";
+            element.style.left = "150px";
+            element.style.top = "150px";
+            canvas.appendChild(element);
+        }
+    }
+    
+    initializeToolbar();
+    
+
+}
+
+// Box Model Input Handling
+function initBoxModelInputs() {
+    const inputs = document.querySelectorAll('input[type="number"]');
+    let mouseDownTimer;
+    let isScrollMode = false;
+    
+    inputs.forEach(input => {
+        input.addEventListener('mousedown', function(e) {
+            if (e.button === 0) { // Left mouse button
+                mouseDownTimer = setTimeout(() => {
+                    isScrollMode = true;
+                    this.style.cursor = 'ew-resize';
+                }, 1000); // 1 second hold
+            }
+        });
+
+        input.addEventListener('mouseup', function() {
+            clearTimeout(mouseDownTimer);
+            isScrollMode = false;
+            this.style.cursor = 'text';
+        });
+
+        input.addEventListener('mouseleave', function() {
+            clearTimeout(mouseDownTimer);
+            isScrollMode = false;
+            this.style.cursor = 'text';
+        });
+
+        input.addEventListener('wheel', function(e) {
+            if (isScrollMode) {
+                e.preventDefault();
+                const delta = Math.sign(e.deltaX || e.deltaY);
+                this.value = (parseInt(this.value) || 0) + delta;
+            }
+        }, { passive: false });
     });
 }
 
 //✅ Where all my code is running (Without being triggered)
 document.addEventListener('DOMContentLoaded', function () {
     checkSession();
+    initBoxModelInputs();
 });
+

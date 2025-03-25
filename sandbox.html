@@ -1,136 +1,127 @@
-
-<!--main-- class="dash">
-    <span class="toolbar"></span>
-    <span class="lpanel">
-        <span class="top">
-            <span class="user">
-                <span class="avatar"></span>
-                <span class="right">
-                    <b class="name"></b>
-                    <span class="badge"></span>
-                </span>
-            </span>
-            <span class="teams">
-                <span class="title">
-                    <b>Teams</b>
-                    <icon class="add_team" id="add_team" title="Create Team">add</icon>
-                    
-                    <div id="teamOverlay" class="team-overlay">
-                        <div id="modal" class="modal forms">
-                            <span class="title">
-                                <b>Add Team</b>
-                                <icon id="closeModalBtn" class="close-button">close</icon>
-                            </span>
-                            <form action="scodes/function.php" method="POST">
-                                <span class="input">
-                                    <input type="text" name="teamname" id="teamname">
-                                    <label for="teamname">Team Name</label>
-                                </span>
-                                <span class="input">
-                                    <textarea name="teamdesc" id="teamdesc" data-limit="250"></textarea>
-                                    <label for="teamdesc">Team Description</label>
-                                </span>
-
-                                <div class="button">
-                                    <button type="submit" name="createTeam">Create Team</button>
-                                    <button type="reset">Reset</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </span>
-                <span class="team">
-                    <p>No Teams Created</p>
-                    <span class="item">
-                    </span>
-                </span>
-
-            </span>
-        </span>
-
-        <icon id="logout">logout <p>Logout</p></icon>
-    </span>
-    <span class="viewport"></span>
-    <span class="rpanel"></span>
-</!--main-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Builder</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
+    <title>Document</title>
+<style>
+    *{
+        list-style: none;
+        color: black;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        border-radius: 4px;
+    }
+    .tool-bar{
+        flex-direction: row;
+        position: fixed;
+        display: flex;
+        bottom: 20px;
+        left: 20px;
+        gap: 4px;
+        .tool-group{
+            background-color: #fff;
+            border: 1px solid #000;
+            border-radius: 4px;
+            position: relative;
             display: flex;
+            height: 44px;
+            width: 44px;
+            padding: 2px;
+
+            .selected{
+                background-color: #000;
+                justify-content: center;
+                align-items: center;
+                display: flex;
+                color: #fff;
+                width: 100%;
+                height: 100%;
+            }
+
+            .options{
+                background-color: #fff;
+                border: 1px solid #000;
+                flex-direction: column;
+                align-items: center;
+                position: absolute;
+                display: none;
+                bottom: 48px;
+                padding: 2px;
+                width: 44px;
+                gap: 4px;
+                left: 0;
+
+                &.active{
+                    display: flex;
+                }
+
+                li{
+                    background-color: #000;
+                    color: #fff;
+                    height: 44px;
+                    width: 100%;
+                    justify-content: center;
+                    align-items: center;
+                    display: flex;
+                }
+                
+            }
+            .opener{
+                background-color: red;
+                position: absolute;
+                content: '';
+                height: 8px;
+                width: 8px;
+                bottom: 2px;
+                left: 2px;
+            }
         }
-        .sidebar {
-            width: 250px;
-            background: #f4f4f4;
-            padding: 20px;
-            height: 100vh;
-        }
-        .workspace {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        .tabs {
-            display: flex;
-            background: #ddd;
-            padding: 10px;
-        }
-        .tab {
-            background: #fff;
-            padding: 10px;
-            margin-right: 5px;
-            cursor: pointer;
-            border: 1px solid #ccc;
-        }
-        .canvas {
-            flex-grow: 1;
-            background: #fff;
-            padding: 20px;
-        }
-    </style>
+    }
+</style>
 </head>
 <body>
-    <div class="sidebar">
-        <h3>Projects</h3>
-        <ul id="projectList">
-            <li onclick="openProject('Project 1')">Project 1</li>
-            <li onclick="openProject('Project 2')">Project 2</li>
+    <span class="tool-bar">
+        <ul class="tool-group">
+            <li class="selected">A</li>
+            <li class="opener"></li>
+            <ul class="options">
+                <li>A</li>
+                <li>B</li>
+                <li>C</li>
+                <li>D</li>
+                <li>E</li>
+            </ul>
         </ul>
-    </div>
-    <div class="workspace">
-        <div class="tabs" id="tabs"></div>
-        <div class="canvas" id="canvas">
-            <p>Select a project to start editing.</p>
-        </div>
-    </div>
-
+    </span>
+</body>
     <script>
-        function openProject(name) {
-            let tabs = document.getElementById('tabs');
-            let tab = document.createElement('div');
-            tab.className = 'tab';
-            tab.innerText = name;
-            tab.onclick = () => activateTab(name);
-            tabs.appendChild(tab);
-            
-            let canvas = document.getElementById('canvas');
-            canvas.innerHTML = `<h2>Editing: ${name}</h2>`;
-        }
-
-        function activateTab(name) {
-            let tabs = document.querySelectorAll('.tab');
-            tabs.forEach(tab => {
-                tab.style.background = tab.innerText === name ? '#ccc' : '#fff';
+        function opener(){
+            const opener = document.querySelector('.opener');
+            const options = document.querySelector('.options');
+            let selected = document.querySelector('.selected');
+            opener.addEventListener('click', (event) => {
+                options.classList.toggle('active');
+            });
+            const items = options.children;
+            // Get element content
+            // Loop through each child and log its innerHTML
+            for (let item of items) {
+                item.addEventListener('click', (event) => {
+                    selected.innerHTML = item.innerHTML;
+                    options.classList.remove('active');
+                    console.log(selected.innerHTML);
+                });
+            }
+            selected.addEventListener('click', (event) => {
+                console.log(selected.innerHTML);
+                let check = options.classList.contains('active');
+                if(check){
+                    options.classList.remove('active');
+                }
             });
         }
+        opener();
     </script>
-</body>
 </html>
-
