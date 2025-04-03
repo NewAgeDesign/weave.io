@@ -1,4 +1,3 @@
-import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.5/dist/tweakpane.min.js';
 function checkSession() {
     io.in('ajax', 'get', 'scode/function.php', { action: 'session' }, function (res) {
 
@@ -41,6 +40,8 @@ function checkSession() {
             openProject('.selection > .item');
             uiUpdate();
             viewport();
+            opener();
+            lpanelDir();
         }
         if (project) {
             projects();
@@ -387,12 +388,27 @@ function systemNav() {
 function viewport() {
     const viewport = document.querySelector(".viewport");
     const canvas = document.querySelector(".canvas-wrapper");
-    let scale = 1, offsetX = 0, offsetY = 0;
+    let scale = 1;
+    let offsetX = 0, offsetY = 0;
     let isPanning = false, startX, startY;
     let lastPanX = 0, lastPanY = 0, lastScale = 1;
-    let rulers = document.createElement("div");
-    rulers.classList.add("rulers");
-    viewport.appendChild(rulers);
+    let isSpacePressed = false;
+
+    // Set default cursor
+    viewport.style.cursor = 'default';
+    canvas.style.cursor = 'default';
+
+    // Center the canvas initially
+    function centerCanvas() {
+        const viewportWidth = viewport.clientWidth;
+        const viewportHeight = viewport.clientHeight;
+        const canvasWidth = canvas.offsetWidth;
+        const canvasHeight = canvas.offsetHeight;
+        
+        offsetX = (viewportWidth - canvasWidth) / 2;
+        offsetY = (viewportHeight - canvasHeight) / 2;
+        updateTransform();
+    }
 
     // Restore saved pan & zoom
     const savedState = JSON.parse(localStorage.getItem("viewportState"));
@@ -401,6 +417,8 @@ function viewport() {
         offsetX = lastPanX = savedState.offsetX;
         offsetY = lastPanY = savedState.offsetY;
         updateTransform();
+    } else {
+        centerCanvas();
     }
 
     function updateTransform() {
@@ -411,17 +429,39 @@ function viewport() {
         localStorage.setItem("viewportState", JSON.stringify({ scale, offsetX, offsetY }));
     }
 
+    // Handle space key for panning
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+            isSpacePressed = true;
+            viewport.style.cursor = 'grab';
+            canvas.style.cursor = 'grab';
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if (e.code === 'Space') {
+            isSpacePressed = false;
+            viewport.style.cursor = 'default';
+            canvas.style.cursor = 'default';
+        }
+    });
+
     viewport.addEventListener("wheel", function (e) {
         e.preventDefault();
         let zoomFactor = 1.1;
-        let mouseX = e.clientX - viewport.offsetLeft;
-        let mouseY = e.clientY - viewport.offsetTop;
         
+        // Get viewport center
+        const viewportCenterX = viewport.clientWidth / 2;
+        const viewportCenterY = viewport.clientHeight / 2;
+        
+        // Calculate new scale
         let newScale = e.deltaY > 0 ? scale / zoomFactor : scale * zoomFactor;
         newScale = Math.max(0.2, Math.min(newScale, 3));
 
-        offsetX = mouseX - ((mouseX - offsetX) * (newScale / scale));
-        offsetY = mouseY - ((mouseY - offsetY) * (newScale / scale));
+        // Calculate new offset to zoom from center
+        const scaleRatio = newScale / scale;
+        offsetX = viewportCenterX - (viewportCenterX - offsetX) * scaleRatio;
+        offsetY = viewportCenterY - (viewportCenterY - offsetY) * scaleRatio;
 
         scale = newScale;
         updateTransform();
@@ -429,14 +469,18 @@ function viewport() {
     });
 
     viewport.addEventListener("mousedown", function (e) {
+        if (!isSpacePressed) return;
+        
         isPanning = true;
         startX = e.clientX - offsetX;
         startY = e.clientY - offsetY;
         viewport.style.cursor = "grabbing";
+        canvas.style.cursor = "grabbing";
     });
 
     viewport.addEventListener("mousemove", function (e) {
-        if (!isPanning) return;
+        if (!isPanning || !isSpacePressed) return;
+        
         offsetX = e.clientX - startX;
         offsetY = e.clientY - startY;
         updateTransform();
@@ -444,37 +488,23 @@ function viewport() {
 
     viewport.addEventListener("mouseup", function () {
         isPanning = false;
-        viewport.style.cursor = "grab";
+        viewport.style.cursor = isSpacePressed ? 'grab' : 'default';
+        canvas.style.cursor = isSpacePressed ? 'grab' : 'default';
+        saveState();
+    });
+
+    viewport.addEventListener("mouseleave", function () {
+        isPanning = false;
+        viewport.style.cursor = isSpacePressed ? 'grab' : 'default';
+        canvas.style.cursor = isSpacePressed ? 'grab' : 'default';
         saveState();
     });
 
     viewport.addEventListener("dblclick", function () {
         scale = 1;
-        offsetX = offsetY = 0;
-        updateTransform();
+        centerCanvas();
         saveState();
     });
-
-    function createRulers() {
-        rulers.innerHTML = '';
-        const topRuler = document.createElement("div");
-        const leftRuler = document.createElement("div");
-        topRuler.classList.add("top-ruler");
-        leftRuler.classList.add("left-ruler");
-        rulers.appendChild(topRuler);
-        rulers.appendChild(leftRuler);
-    }
-
-    function createGuide(x, y, type) {
-        const guide = document.createElement("div");
-        guide.classList.add("guide", type);
-        if (type === "horizontal") {
-            guide.style.top = `${y}px`;
-        } else {
-            guide.style.left = `${x}px`;
-        }
-        rulers.appendChild(guide);
-    }
 
     viewport.addEventListener("dblclick", function (e) {
         if (e.shiftKey) {
@@ -483,74 +513,6 @@ function viewport() {
             createGuide(e.clientX - viewport.offsetLeft, 0, "vertical");
         }
     });
-    
-    function setupRulers() {
-        const viewport = document.querySelector(".viewport");
-        const canvas = document.querySelector(".canvas-wrapper");
-    
-        let hRuler = document.querySelector(".ruler-horizontal");
-        let vRuler = document.querySelector(".ruler-vertical");
-    
-        if (!hRuler) {
-            hRuler = document.createElement("div");
-            hRuler.classList.add("ruler-horizontal");
-            viewport.appendChild(hRuler);
-        }
-    
-        if (!vRuler) {
-            vRuler = document.createElement("div");
-            vRuler.classList.add("ruler-vertical");
-            viewport.appendChild(vRuler);
-        }
-    
-        function generateRulerMarks(scale = 1, offsetX = 0, offsetY = 0) {
-            hRuler.innerHTML = "";
-            vRuler.innerHTML = "";
-    
-            let step = 32 * scale; // 5rem (16px) * zoom scale
-    
-            // Horizontal Ruler
-            for (let x = -offsetX; x <= canvas.clientWidth - offsetX; x += step) {
-                let mark = document.createElement("div");
-                mark.classList.add("ruler-mark");
-                mark.style.left = `${x}px`;
-                mark.innerText = Math.round(x / scale);
-                hRuler.appendChild(mark);
-            }
-    
-            // Vertical Ruler
-            for (let y = -offsetY; y <= canvas.clientHeight - offsetY; y += step) {
-                let mark = document.createElement("div");
-                mark.classList.add("ruler-mark");
-                mark.style.top = `${y}px`;
-                mark.innerText = Math.round(y / scale);
-                vRuler.appendChild(mark);
-            }
-        }
-    
-        function syncRulers(scale = 1, offsetX = 0, offsetY = 0) {
-            hRuler.style.transform = `translateX(${offsetX}px) scaleX(${scale})`;
-            vRuler.style.transform = `translateY(${offsetY}px) scaleY(${scale})`;
-        }
-    
-        // Observer for canvas movement
-        new MutationObserver(() => {
-            const transform = canvas.style.transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)\s*scale\(([^)]+)\)/);
-            if (transform) {
-                let offsetX = parseFloat(transform[1]);
-                let offsetY = parseFloat(transform[2]);
-                let scale = parseFloat(transform[3]);
-    
-                generateRulerMarks(scale, offsetX, offsetY);
-                syncRulers(scale, offsetX, offsetY);
-            }
-        }).observe(canvas, { attributes: true, attributeFilter: ["style"] });
-    
-        // Initial setup
-        generateRulerMarks();
-    }
-    setupRulers();
-    createRulers();
 
     function initializeToolbar() {
         const toolbar = document.querySelector(".toolbar");
@@ -663,51 +625,345 @@ function viewport() {
     }
     
     initializeToolbar();
-    
-
 }
 
-// Box Model Input Handling
-function initBoxModelInputs() {
-    const inputs = document.querySelectorAll('input[type="number"]');
-    let mouseDownTimer;
-    let isScrollMode = false;
+function opener(){
+    const toolGroups = document.querySelectorAll('.tool-group');
     
-    inputs.forEach(input => {
-        input.addEventListener('mousedown', function(e) {
-            if (e.button === 0) { // Left mouse button
-                mouseDownTimer = setTimeout(() => {
-                    isScrollMode = true;
-                    this.style.cursor = 'ew-resize';
-                }, 1000); // 1 second hold
+    toolGroups.forEach(toolGroup => {
+        const opener = toolGroup.querySelector('.opener');
+        const options = toolGroup.querySelector('.options');
+        let selected = toolGroup.querySelector('.selected');
+        
+        if (opener && options) {
+            // If no selected element exists, use the first child of options as default
+            if (!selected || selected.innerHTML.trim() === '') {
+                if (options.children.length > 0) {
+                    if (!selected) {
+                        // Create selected element if it doesn't exist
+                        selected = document.createElement('div');
+                        selected.classList.add('selected');
+                        toolGroup.prepend(selected);
+                    }
+                    selected.innerHTML = options.children[0].innerHTML;
+                }
             }
-        });
-
-        input.addEventListener('mouseup', function() {
-            clearTimeout(mouseDownTimer);
-            isScrollMode = false;
-            this.style.cursor = 'text';
-        });
-
-        input.addEventListener('mouseleave', function() {
-            clearTimeout(mouseDownTimer);
-            isScrollMode = false;
-            this.style.cursor = 'text';
-        });
-
-        input.addEventListener('wheel', function(e) {
-            if (isScrollMode) {
-                e.preventDefault();
-                const delta = Math.sign(e.deltaX || e.deltaY);
-                this.value = (parseInt(this.value) || 0) + delta;
+            
+            opener.addEventListener('click', (event) => {
+                options.classList.toggle('active');
+            });
+            
+            const items = options.children;
+            // Get element content
+            // Loop through each child and log its innerHTML
+            for (let item of items) {
+                item.addEventListener('click', (event) => {
+                    selected.innerHTML = item.innerHTML;
+                    options.classList.remove('active');
+                    console.log(selected.innerHTML);
+                });
             }
-        }, { passive: false });
+            
+            if (selected) {
+                selected.addEventListener('click', (event) => {
+                    console.log(selected.innerHTML);
+                    let check = options.classList.contains('active');
+                    if(check){
+                        options.classList.remove('active');
+                    }
+                });
+            }
+        }
     });
 }
 
+function lpanelDir(){
+    // Make items draggable
+    const draggableItems = document.querySelectorAll('.folder-item, .page-item, .component-item');
+    const dropZones = document.querySelectorAll('.folder, .page, .component, .dir');
+
+    draggableItems.forEach(item => {
+        item.setAttribute('draggable', 'true');
+        
+        item.addEventListener('dragstart', (e) => {
+            e.stopPropagation();
+            item.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', item.closest('.folder, .page, .component').className);
+        });
+
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+        });
+    });
+
+    dropZones.forEach(zone => {
+        zone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const draggingItem = document.querySelector('.dragging');
+            if (!draggingItem) return;
+
+            const draggedElement = draggingItem.closest('.folder, .page, .component');
+            const draggingType = draggedElement.className;
+            const zoneType = zone.className;
+
+            if (isValidDrop(draggingType, zoneType)) {
+                const closestElement = getClosestElement(e.clientY, zone);
+                if (closestElement) {
+                    const indicator = closestElement.querySelector('.drag-indicator') || 
+                        createDragIndicator(closestElement);
+                    indicator.style.display = 'block';
+                }
+                zone.classList.add('drag-over');
+            }
+        });
+
+        zone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            zone.classList.remove('drag-over');
+            hideDragIndicators();
+        });
+
+        zone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            zone.classList.remove('drag-over');
+            hideDragIndicators();
+
+            const draggingItem = document.querySelector('.dragging');
+            if (!draggingItem) return;
+
+            const draggedElement = draggingItem.closest('.folder, .page, .component');
+            const draggingType = draggedElement.className;
+            const zoneType = zone.className;
+
+            if (isValidDrop(draggingType, zoneType)) {
+                const closestElement = getClosestElement(e.clientY, zone);
+                
+                if (closestElement) {
+                    // If dropping between items, insert after the top entity
+                    draggedElement.remove();
+                    closestElement.parentNode.insertBefore(draggedElement, closestElement);
+                } else if (zoneType.includes('dir')) {
+                    // If dropping in empty directory or at the end
+                    draggedElement.remove();
+                    zone.appendChild(draggedElement);
+                } else {
+                    // If dropping inside a folder/page/component
+                    const container = zone.querySelector('.folder-content, .page-content, .component-content');
+                    if (container) {
+                        draggedElement.remove();
+                        container.appendChild(draggedElement);
+                    }
+                }
+            }
+        });
+    });
+
+    function getClosestElement(y, container) {
+        const draggableElements = [...container.querySelectorAll('.folder, .page, .component:not(.dragging)')];
+        
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top;
+
+            if (offset > 0 && offset < closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.POSITIVE_INFINITY }).element;
+    }
+
+    function createDragIndicator(element) {
+        const indicator = document.createElement('div');
+        indicator.className = 'drag-indicator';
+        element.appendChild(indicator);
+        return indicator;
+    }
+
+    function hideDragIndicators() {
+        document.querySelectorAll('.drag-indicator').forEach(indicator => {
+            indicator.style.display = 'none';
+        });
+    }
+
+    function isValidDrop(draggingType, zoneType) {
+        // Root directory (.dir) accepts everything
+        if (zoneType.includes('dir')) {
+            return true;
+        }
+
+        // Folders can contain pages, components, and other folders
+        if (zoneType.includes('folder')) {
+            return draggingType.includes('page') || 
+                   draggingType.includes('component') || 
+                   draggingType.includes('folder');
+        }
+
+        // Pages can only contain components
+        if (zoneType.includes('page')) {
+            return draggingType.includes('component');
+        }
+
+        // Components can contain other components
+        if (zoneType.includes('component')) {
+            return draggingType.includes('component');
+        }
+
+        return false;
+    }
+
+    // Toggle expansion
+    document.querySelectorAll('.folder-item, .page-item, .component-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const container = item.closest('.folder, .page, .component');
+            container.classList.toggle('expanded');
+        });
+    });
+
+    // Handle selection
+    document.querySelectorAll('.folder-item, .page-item, .component-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.querySelectorAll('.folder-item, .page-item, .component-item').forEach(i => {
+                i.classList.remove('active');
+            });
+            item.classList.add('active');
+        });
+    });
+
+    // Handle visibility toggle
+    document.querySelectorAll('.actions .visibility').forEach(icon => {
+        icon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            icon.textContent = icon.textContent === 'visibility' ? 'visibility_off' : 'visibility';
+        });
+    });
+
+    // Add folder creation
+    document.getElementById('addFolder').addEventListener('click', () => {
+        const dir = document.querySelector('.dir');
+        const newFolder = document.createElement('div');
+        newFolder.className = 'folder';
+        newFolder.innerHTML = `
+            <div class="folder-item">
+                <span class="expand-arrow">
+                    <icon class="material-icons">chevron_right</icon>
+                </span>
+                <icon class="material-icons">folder</icon>
+                <span class="name">New Folder</span>
+                <div class="actions">
+                    <icon class="material-icons" title="Toggle visibility">visibility</icon>
+                    <icon class="material-icons" title="Delete">delete</icon>
+                </div>
+            </div>
+            <div class="folder-content"></div>
+        `;
+        dir.insertBefore(newFolder, dir.firstChild);
+
+        // Add event handlers to new folder
+        const newFolderItem = newFolder.querySelector('.folder-item');
+        newFolderItem.setAttribute('draggable', 'true');
+        
+        newFolderItem.addEventListener('dragstart', (e) => {
+            e.stopPropagation();
+            newFolderItem.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', newFolder.className);
+        });
+
+        newFolderItem.addEventListener('dragend', () => {
+            newFolderItem.classList.remove('dragging');
+        });
+
+        // Add expansion toggle
+        newFolderItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            newFolder.classList.toggle('expanded');
+        });
+
+        // Add selection
+        newFolderItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.querySelectorAll('.folder-item, .page-item, .component-item').forEach(i => {
+                i.classList.remove('active');
+            });
+            newFolderItem.classList.add('active');
+        });
+
+        // Add visibility toggle
+        newFolder.querySelector('.actions icon').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const icon = e.target;
+            icon.textContent = icon.textContent === 'visibility' ? 'visibility_off' : 'visibility';
+        });
+
+        // Add drop zone functionality
+        newFolder.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const draggingItem = document.querySelector('.dragging');
+            if (!draggingItem) return;
+
+            const draggedElement = draggingItem.closest('.folder, .page, .component');
+            const draggingType = draggedElement.className;
+            const zoneType = newFolder.className;
+
+            if (isValidDrop(draggingType, zoneType)) {
+                newFolder.classList.add('drag-over');
+            }
+        });
+
+        newFolder.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            newFolder.classList.remove('drag-over');
+        });
+
+        newFolder.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            newFolder.classList.remove('drag-over');
+
+            const draggingItem = document.querySelector('.dragging');
+            if (!draggingItem) return;
+
+            const draggedElement = draggingItem.closest('.folder, .page, .component');
+            const draggingType = draggedElement.className;
+            const zoneType = newFolder.className;
+
+            if (isValidDrop(draggingType, zoneType)) {
+                const container = newFolder.querySelector('.folder-content');
+                if (container) {
+                    draggedElement.remove();
+                    container.appendChild(draggedElement);
+                }
+            }
+        });
+    });
+}
 //✅ Where all my code is running (Without being triggered)
 document.addEventListener('DOMContentLoaded', function () {
     checkSession();
-    initBoxModelInputs();
+});
+
+
+canvas.addEventListener('wheel', (e) => {
+    if (e.ctrlKey) {
+        // Handle zoom
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        const newZoom = Math.max(0.1, Math.min(5, canvas.zoom * delta));
+        canvas.zoom = newZoom;
+    } else {
+        // Handle pan
+        const newX = canvas.panX + e.deltaX;
+        const newY = canvas.panY + e.deltaY;
+        canvas.panX = newX;
+        canvas.panY = newY;
+    }
 });
 
