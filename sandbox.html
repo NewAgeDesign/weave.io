@@ -1,612 +1,100 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Manager Prototype</title>
-<style>
-        :root {
-            --primary: #ffffff;
-            --secondary: #1e1e1e;
-            --secondary2: #2d2d2d;
-            --secondary3: #3d3d3d;
-            --accent: #cccccc;
-            --accent2: #999999;
-            --tertiary: #e68200;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-
-        body {
-            background: var(--primary);
-            color: var(--accent);
-            height: 100vh;
-            display: flex;
-        }
-
-        .lpanel {
-            background: var(--secondary);
-            width: 260px;
-            height: 100%;
-            padding: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .title {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid var(--secondary2);
-            margin-bottom: 4px;
-        }
-
-        .title h3 {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--accent);
-        }
-
-        .title .actions {
-            display: flex;
-            gap: 4px;
-        }
-
-        .title .actions icon {
-            cursor: pointer;
-            padding: 4px;
-            border-radius: 4px;
-        }
-
-        .title .actions icon:hover {
-            background: var(--secondary2);
-        }
-
-        .dir {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            width: 100%;
-            padding: 4px 0;
-        }
-
-        .folder, .page, .component {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            margin: 2px 0;
-        }
-
-        .folder-item, .page-item, .component-item {
-            display: flex;
-            align-items: center;
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            gap: 4px;
-            font-size: 12px;
-            width: 100%;
-        }
-
-        .folder-item:hover, .page-item:hover, .component-item:hover {
-            background: var(--secondary2);
-        }
-
-        .folder-item.active, .page-item.active, .component-item.active {
-            background: var(--secondary3);
-        }
-
-        .folder-item icon, .page-item icon, .component-item icon {
-            font-size: 16px;
-            color: var(--accent2);
-        }
-
-        .folder-item .name, .page-item .name, .component-item .name {
-            flex: 1;
-        }
-
-        .actions {
-            position: absolute;
-            right: 8px;
-            display: flex;
-            gap: 4px;
-            opacity: 0;
-        }
-
-        .folder-item:hover .actions,
-        .page-item:hover .actions,
-        .component-item:hover .actions {
-            opacity: 1;
-        }
-
-        .actions icon {
-            cursor: pointer;
-            padding: 2px;
-            border-radius: 4px;
-        }
-
-        .actions icon:hover {
-            background: var(--secondary2);
-        }
-
-        .expand-arrow icon {
-            transform: rotate(0deg);
-            transition: transform 0.2s;
-        }
-
-        .expanded > *:first-child .expand-arrow icon {
-            transform: rotate(90deg);
-        }
-
-        .folder-content, .page-content, .component-content {
-            display: none;
-            padding-left: 12px;
-            gap: 4px;
-        }
-
-        .expanded > .folder-content,
-        .expanded > .page-content,
-        .expanded > .component-content {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .dragging {
-            opacity: 0.5;
-        }
-
-        .drag-over {
-            background: var(--secondary3);
-        }
-
-        .drag-indicator {
-            height: 2px;
-            box-shadow: 0 -2px 2px var(--tertiary);
-            margin: 2px 0;
-            display: none;
-        }
-
-        .drag-indicator.active {
-            display: block;
-        }
-</style>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-</head>
-<body>
-    <div class="lpanel">
-        <div class="title">
-            <h3>PAGES</h3>
-            <div class="adds">
-                <icon class="material-icons" title="Search pages">search</icon>
-                <icon class="material-icons" title="Add folder" id="addFolder">folder</icon>
-            </div>
-        </div>
-        <div class="dir">
-            <!-- Root level items -->
-            <div class="folder">
-                <div class="folder-item">
-                    <span class="expand-arrow">
-                        <icon class="material-icons">chevron_right</icon>
-                    </span>
-                    <icon class="material-icons">folder</icon>
-                    <span class="name">Folder 1</span>
-                    <div class="actions">
-                        <icon class="material-icons" title="Toggle visibility">visibility</icon>
-                        <icon class="material-icons" title="Delete">delete</icon>
-                    </div>
-                </div>
-                <div class="folder-content">
-                    <!-- Nested items -->
-                </div>
-            </div>
-            <div class="page">
-                <div class="page-item">
-                    <span class="expand-arrow">
-                        <icon class="material-icons">chevron_right</icon>
-                    </span>
-                    <icon class="material-icons">description</icon>
-                    <span class="name">Page 1</span>
-                    <div class="actions">
-                        <icon class="material-icons" title="Toggle visibility">visibility</icon>
-                        <icon class="material-icons" title="Delete">delete</icon>
-                    </div>
-                </div>
-                <div class="page-content">
-                    <!-- Page components -->
-                </div>
-            </div>
-            <div class="component">
-                <div class="component-item">
-                    <span class="expand-arrow">
-                        <icon class="material-icons">chevron_right</icon>
-                    </span>
-                    <icon class="material-icons">code</icon>
-                    <span class="name">Component 1</span>
-                    <div class="actions">
-                        <icon class="material-icons" title="Toggle visibility">visibility</icon>
-                        <icon class="material-icons" title="Delete">delete</icon>
-                    </div>
-                </div>
-                <div class="component-content">
-                    <!-- Nested components -->
-                </div>
-            </div>
-            <div class="folder">
-                <div class="folder-item">
-                    <span class="expand-arrow">
-                        <icon class="material-icons">chevron_right</icon>
-                    </span>
-                    <icon class="material-icons">folder</icon>
-                    <span class="name">Folder 2</span>
-                    <div class="actions">
-                        <icon class="material-icons" title="Toggle visibility">visibility</icon>
-                        <icon class="material-icons" title="Delete">delete</icon>
-                    </div>
-                </div>
-                <div class="folder-content">
-                    <!-- Nested items -->
-                </div>
-            </div>
-            <div class="page">
-                <div class="page-item">
-                    <span class="expand-arrow">
-                        <icon class="material-icons">chevron_right</icon>
-                    </span>
-                    <icon class="material-icons">description</icon>
-                    <span class="name">Page 2</span>
-                    <div class="actions">
-                        <icon class="material-icons" title="Toggle visibility">visibility</icon>
-                        <icon class="material-icons" title="Delete">delete</icon>
-                    </div>
-                </div>
-                <div class="page-content">
-                    <!-- Page components -->
-                </div>
-            </div>
-            <div class="component">
-                <div class="component-item">
-                    <span class="expand-arrow">
-                        <icon class="material-icons">chevron_right</icon>
-                    </span>
-                    <icon class="material-icons">code</icon>
-                    <span class="name">Component 2</span>
-                    <div class="actions">
-                        <icon class="material-icons" title="Toggle visibility">visibility</icon>
-                        <icon class="material-icons" title="Delete">delete</icon>
-                    </div>
-                </div>
-                <div class="component-content">
-                    <!-- Nested components -->
-                </div>
-            </div>
-            <div class="folder">
-                <div class="folder-item">
-                    <span class="expand-arrow">
-                        <icon class="material-icons">chevron_right</icon>
-                    </span>
-                    <icon class="material-icons">folder</icon>
-                    <span class="name">Folder 3</span>
-                    <div class="actions">
-                        <icon class="material-icons" title="Toggle visibility">visibility</icon>
-                        <icon class="material-icons" title="Delete">delete</icon>
-                    </div>
-                </div>
-                <div class="folder-content">
-                    <!-- Nested items -->
-                </div>
-            </div>
-            <div class="page">
-                <div class="page-item">
-                    <span class="expand-arrow">
-                        <icon class="material-icons">chevron_right</icon>
-                    </span>
-                    <icon class="material-icons">description</icon>
-                    <span class="name">Page 3</span>
-                    <div class="actions">
-                        <icon class="material-icons" title="Toggle visibility">visibility</icon>
-                        <icon class="material-icons" title="Delete">delete</icon>
-                    </div>
-                </div>
-                <div class="page-content">
-                    <!-- Page components -->
-                </div>
-            </div>
-            <div class="component">
-                <div class="component-item">
-                    <span class="expand-arrow">
-                        <icon class="material-icons">chevron_right</icon>
-                    </span>
-                    <icon class="material-icons">code</icon>
-                    <span class="name">Component 3</span>
-                    <div class="actions">
-                        <icon class="material-icons" title="Toggle visibility">visibility</icon>
-                        <icon class="material-icons" title="Delete">delete</icon>
-                    </div>
-                </div>
-                <div class="component-content">
-                    <!-- Nested components -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Make items draggable
-        const draggableItems = document.querySelectorAll('.folder-item, .page-item, .component-item');
-        const dropZones = document.querySelectorAll('.folder, .page, .component, .dir');
-
-        draggableItems.forEach(item => {
-            item.setAttribute('draggable', 'true');
-            
-            item.addEventListener('dragstart', (e) => {
-                e.stopPropagation();
-                item.classList.add('dragging');
-                e.dataTransfer.setData('text/plain', item.closest('.folder, .page, .component').className);
-            });
-
-            item.addEventListener('dragend', () => {
-                item.classList.remove('dragging');
-            });
-        });
-
-        dropZones.forEach(zone => {
-            zone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const draggingItem = document.querySelector('.dragging');
-                if (!draggingItem) return;
-
-                const draggedElement = draggingItem.closest('.folder, .page, .component');
-                const draggingType = draggedElement.className;
-                const zoneType = zone.className;
-
-                if (isValidDrop(draggingType, zoneType)) {
-                    const closestElement = getClosestElement(e.clientY, zone);
-                    if (closestElement) {
-                        const indicator = closestElement.querySelector('.drag-indicator') || 
-                            createDragIndicator(closestElement);
-                        indicator.style.display = 'block';
-                    }
-                    zone.classList.add('drag-over');
-                }
-            });
-
-            zone.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                zone.classList.remove('drag-over');
-                hideDragIndicators();
-            });
-
-            zone.addEventListener('drop', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                zone.classList.remove('drag-over');
-                hideDragIndicators();
-
-                const draggingItem = document.querySelector('.dragging');
-                if (!draggingItem) return;
-
-                const draggedElement = draggingItem.closest('.folder, .page, .component');
-                const draggingType = draggedElement.className;
-                const zoneType = zone.className;
-
-                if (isValidDrop(draggingType, zoneType)) {
-                    const closestElement = getClosestElement(e.clientY, zone);
-                    
-                    if (closestElement) {
-                        // If dropping between items, insert after the top entity
-                        draggedElement.remove();
-                        closestElement.parentNode.insertBefore(draggedElement, closestElement);
-                    } else if (zoneType.includes('dir')) {
-                        // If dropping in empty directory or at the end
-                        draggedElement.remove();
-                        zone.appendChild(draggedElement);
-                    } else {
-                        // If dropping inside a folder/page/component
-                        const container = zone.querySelector('.folder-content, .page-content, .component-content');
-                        if (container) {
-                            draggedElement.remove();
-                            container.appendChild(draggedElement);
-                        }
-                    }
-                }
-            });
-        });
-
-        function getClosestElement(y, container) {
-            const draggableElements = [...container.querySelectorAll('.folder, .page, .component:not(.dragging)')];
-            
-            return draggableElements.reduce((closest, child) => {
-                const box = child.getBoundingClientRect();
-                const offset = y - box.top;
-
-                if (offset > 0 && offset < closest.offset) {
-                    return { offset: offset, element: child };
-                } else {
-                    return closest;
-                }
-            }, { offset: Number.POSITIVE_INFINITY }).element;
-        }
-
-        function createDragIndicator(element) {
-            const indicator = document.createElement('div');
-            indicator.className = 'drag-indicator';
-            element.appendChild(indicator);
-            return indicator;
-        }
-
-        function hideDragIndicators() {
-            document.querySelectorAll('.drag-indicator').forEach(indicator => {
-                indicator.style.display = 'none';
-            });
-        }
-
-        function isValidDrop(draggingType, zoneType) {
-            // Root directory (.dir) accepts everything
-            if (zoneType.includes('dir')) {
-                return true;
-            }
-
-            // Folders can contain pages, components, and other folders
-            if (zoneType.includes('folder')) {
-                return draggingType.includes('page') || 
-                       draggingType.includes('component') || 
-                       draggingType.includes('folder');
-            }
-
-            // Pages can only contain components
-            if (zoneType.includes('page')) {
-                return draggingType.includes('component');
-            }
-
-            // Components can contain other components
-            if (zoneType.includes('component')) {
-                return draggingType.includes('component');
-            }
-
-            return false;
-        }
-
-        // Toggle expansion
-        document.querySelectorAll('.folder-item, .page-item, .component-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const container = item.closest('.folder, .page, .component');
-                container.classList.toggle('expanded');
-            });
-        });
-
-        // Handle selection
-        document.querySelectorAll('.folder-item, .page-item, .component-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                document.querySelectorAll('.folder-item, .page-item, .component-item').forEach(i => {
-                    i.classList.remove('active');
-                });
-                item.classList.add('active');
-            });
-        });
-
-        // Handle visibility toggle
-        document.querySelectorAll('.actions icon').forEach(icon => {
-            icon.addEventListener('click', (e) => {
-                e.stopPropagation();
-                icon.textContent = icon.textContent === 'visibility' ? 'visibility_off' : 'visibility';
-            });
-        });
-
-        // Add folder creation
-        document.getElementById('addFolder').addEventListener('click', () => {
-            const dir = document.querySelector('.dir');
-            const newFolder = document.createElement('div');
-            newFolder.className = 'folder';
-            newFolder.innerHTML = `
-                <div class="folder-item">
-                    <span class="expand-arrow">
-                        <icon class="material-icons">chevron_right</icon>
-                    </span>
-                    <icon class="material-icons">folder</icon>
-                    <span class="name">New Folder</span>
-                    <div class="actions">
-                        <icon class="material-icons" title="Toggle visibility">visibility</icon>
-                        <icon class="material-icons" title="Delete">delete</icon>
-                    </div>
-                </div>
-                <div class="folder-content"></div>
-            `;
-            dir.insertBefore(newFolder, dir.firstChild);
-
-            // Add event handlers to new folder
-            const newFolderItem = newFolder.querySelector('.folder-item');
-            newFolderItem.setAttribute('draggable', 'true');
-            
-            newFolderItem.addEventListener('dragstart', (e) => {
-                e.stopPropagation();
-                newFolderItem.classList.add('dragging');
-                e.dataTransfer.setData('text/plain', newFolder.className);
-            });
-
-            newFolderItem.addEventListener('dragend', () => {
-                newFolderItem.classList.remove('dragging');
-            });
-
-            // Add expansion toggle
-            newFolderItem.addEventListener('click', (e) => {
-                e.stopPropagation();
-                newFolder.classList.toggle('expanded');
-            });
-
-            // Add selection
-            newFolderItem.addEventListener('click', (e) => {
-                e.stopPropagation();
-                document.querySelectorAll('.folder-item, .page-item, .component-item').forEach(i => {
-                    i.classList.remove('active');
-                });
-                newFolderItem.classList.add('active');
-            });
-
-            // Add visibility toggle
-            newFolder.querySelector('.actions icon').addEventListener('click', (e) => {
-                e.stopPropagation();
-                const icon = e.target;
-                icon.textContent = icon.textContent === 'visibility' ? 'visibility_off' : 'visibility';
-            });
-
-            // Add drop zone functionality
-            newFolder.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const draggingItem = document.querySelector('.dragging');
-                if (!draggingItem) return;
-
-                const draggedElement = draggingItem.closest('.folder, .page, .component');
-                const draggingType = draggedElement.className;
-                const zoneType = newFolder.className;
-
-                if (isValidDrop(draggingType, zoneType)) {
-                    newFolder.classList.add('drag-over');
-                }
-            });
-
-            newFolder.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                newFolder.classList.remove('drag-over');
-            });
-
-            newFolder.addEventListener('drop', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                newFolder.classList.remove('drag-over');
-
-                const draggingItem = document.querySelector('.dragging');
-                if (!draggingItem) return;
-
-                const draggedElement = draggingItem.closest('.folder, .page, .component');
-                const draggingType = draggedElement.className;
-                const zoneType = newFolder.className;
-
-                if (isValidDrop(draggingType, zoneType)) {
-                    const container = newFolder.querySelector('.folder-content');
-                    if (container) {
-                        draggedElement.remove();
-                        container.appendChild(draggedElement);
-                    }
-                }
-            });
-        });
-    </script>
-</body>
-</html>
+function viewport(containerSelector = '.viewport') {
+    const container = document.querySelector(containerSelector);
+    if (!container) return console.error('Viewport container not found');
+  
+    // Create inner canvas
+    const canvas = document.createElement('div');
+    canvas.classList.add('canvas');
+    canvas.style.transformOrigin = '0 0';
+    container.appendChild(canvas);
+  
+    // Create grid dots
+    const grid = document.createElement('div');
+    grid.classList.add('grid');
+    canvas.appendChild(grid);
+  
+    let scale = 1;
+    let offsetX = 0, offsetY = 0;
+    let isPanning = false;
+    let startX = 0, startY = 0;
+    let snapToGrid = false;
+  
+    function updateTransform() {
+      canvas.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+      grid.style.backgroundSize = `${1 * scale}rem ${1 * scale}rem`;
+    }
+  
+    container.addEventListener('wheel', (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const direction = e.deltaY < 0 ? 1 : -1;
+        const zoomFactor = e.shiftKey ? 0.05 : 0.1;
+        const newScale = scale + direction * zoomFactor * scale;
+        if (newScale < 0.1) return;
+  
+        // Zoom centered on mouse
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+  
+        offsetX -= (mx / scale) * (newScale - scale);
+        offsetY -= (my / scale) * (newScale - scale);
+        scale = newScale;
+        updateTransform();
+      }
+    }, { passive: false });
+  
+    container.addEventListener('mousedown', (e) => {
+      if (e.button === 1 || e.spaceKey || e.ctrlKey) {
+        isPanning = true;
+        startX = e.clientX;
+        startY = e.clientY;
+      }
+    });
+  
+    window.addEventListener('mousemove', (e) => {
+      if (isPanning) {
+        const speed = e.shiftKey ? 0.5 : e.altKey ? 2 : 1;
+        offsetX += (e.clientX - startX) * speed;
+        offsetY += (e.clientY - startY) * speed;
+        startX = e.clientX;
+        startY = e.clientY;
+        updateTransform();
+      }
+    });
+  
+    window.addEventListener('mouseup', () => {
+      isPanning = false;
+    });
+  
+    // Snap toggle
+    window.addEventListener('keydown', (e) => {
+      if (e.altKey && e.key.toLowerCase() === 's') {
+        snapToGrid = !snapToGrid;
+        container.classList.toggle('snap', snapToGrid);
+      }
+    });
+  
+    // Optional: object placement handler
+    function placeObject(x, y, obj) {
+      const placed = obj.cloneNode(true);
+      if (snapToGrid) {
+        const gridSize = 16 * scale; // 1rem in px * scale
+        x = Math.round(x / gridSize) * gridSize;
+        y = Math.round(y / gridSize) * gridSize;
+      }
+      placed.style.position = 'absolute';
+      placed.style.left = `${x}px`;
+      placed.style.top = `${y}px`;
+      canvas.appendChild(placed);
+    }
+  
+    updateTransform();
+    return {
+      placeObject,
+      get scale() { return scale },
+      get offset() { return { x: offsetX, y: offsetY } },
+      setZoom(newScale) { scale = newScale; updateTransform(); },
+      setOffset(x, y) { offsetX = x; offsetY = y; updateTransform(); },
+    };
+  }

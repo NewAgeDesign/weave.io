@@ -333,7 +333,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
             $stmt->close(); // ✅ Ensure statement is closed
         break;
 
-        case $data['action'] === 'addTab':
+        case $data['action'] === 'open_project':
             $id = trim($data['id']);
             $email = $_SESSION['email'];
         
@@ -403,31 +403,32 @@ else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         break;
 
         case 'teams':
-            $email = $_SESSION['email']; // Get the logged-in user's email
+            if(isset($_SESSION['email'])){
+                $email = $_SESSION['email']; // Get the logged-in user's email
+                // Fetch teams where the user is the owner OR a member
+                $query = "SELECT DISTINCT t.teamid, t.name, t.descr, t.owemail 
+                        FROM team t
+                        LEFT JOIN tmembers m ON t.teamid = m.teamid
+                        WHERE t.owemail = ? OR m.uemail = ?";
 
-            // Fetch teams where the user is the owner OR a member
-            $query = "SELECT DISTINCT t.teamid, t.name, t.descr, t.owemail 
-                    FROM team t
-                    LEFT JOIN tmembers m ON t.teamid = m.teamid
-                    WHERE t.owemail = ? OR m.uemail = ?";
+                $stmt = $conn->prepare($query);
+                $stmt->bind_param("ss", $email, $email);
+                $stmt->execute();
+                $result = $stmt->get_result();
 
-            $stmt = $conn->prepare($query);
-            $stmt->bind_param("ss", $email, $email);
-            $stmt->execute();
-            $result = $stmt->get_result();
-
-            $teams = [];
-            while ($row = $result->fetch_assoc()) {
-                $teams[] = [
-                    'id' => $row['teamid'],
-                    'name' => $row['name'],
-                    'descr' => $row['descr'],
-                    'owemail' => $row['owemail']
-                ];
+                $teams = [];
+                while ($row = $result->fetch_assoc()) {
+                    $teams[] = [
+                        'id' => $row['teamid'],
+                        'name' => $row['name'],
+                        'descr' => $row['descr'],
+                        'owemail' => $row['owemail']
+                    ];
+                }
+                
+                $res['teams'] = $teams;
             }
 
-
-            $res['teams'] = $teams;
         break;
 
         case 'delete-team': 
@@ -494,34 +495,48 @@ else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         ];
                     }
                 }
+                else{
+                }
             } else {
                 errorm($res, 'bad', 'Error', 'Database query failed: ' . $conn->error);
             }
             $res['projects'] = $projects;
         break;
 
-
         case 'delete-project':
             $projectId = intval($_GET['id']);
 
-            // Check if the project exists
-            $query = "SELECT id FROM project WHERE id = $projectId";
-            $result = $conn->query($query);
+            // Check if the project exists and fetch name
+            $query = $conn->prepare("SELECT name FROM project WHERE id = ?");
+            $query->bind_param("i", $projectId);
+            $query->execute();
+            $result = $query->get_result();
 
             if ($result->num_rows === 0) {
                 errorm($res, 'bad', 'DEL00 : Project Missing', 'No project found.');
-                exit;
+                break;
             }
 
-            // Delete the project
+            $row = $result->fetch_assoc();
+            $projectName = $row['name']; // Assume already sanitized (hyphen-case, lowercase)
+            $query->close();
+
+            // Delete project folder
+            deleteFolder($projectName);
+
+            // Delete the project from DB
             $deleteQuery = $conn->prepare("DELETE FROM project WHERE id = ?");
-            if ($deleteQuery->execute([$projectId])) {
-                errorm($res, 'info', 'DEL01 : Project Deleted', 'Project deleted successfully.');
+            $deleteQuery->bind_param("i", $projectId);
+
+            if ($deleteQuery->execute()) {
+                errorm($res, 'info', 'DEL01 : Project Deleted', "Project '$projectName' and its folder have been deleted.");
             } else {
-                echo json_encode(["success" => false, "message" => "Failed to delete project."]);
-                errorm($res, 'red', 'DEL02 : Delete Error', 'Failed to delete project.');
+                errorm($res, 'red', 'DEL02 : Delete Error', 'Failed to delete project from the database.');
             }
+
+            $deleteQuery->close();
         break;
+
 
         case 'share-link':
             $tid = intval($_GET['id']);

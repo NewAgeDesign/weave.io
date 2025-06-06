@@ -156,100 +156,81 @@
                 }
             }
             // Function to create a folder
-            function createFolder($folderName) {
-                $folderPath = PROJECT . '/' . $folderName; // Full path for the main folder
+            function createFolder($projectName) {
+                $projectName = strtolower(trim($projectName));
+                $projectName = preg_replace('/[^a-z0-9\s]/', '', $projectName);
+                $projectName = preg_replace('/\s+/', '-', $projectName);
+
+                $folderPath = PROJECT . '/' . $projectName;
+                $jsonPath = $folderPath . '/'.$projectName.'.json';
                 global $res;
-            
-                // Check if the folder already exists
+
+                // Check if the project folder already exists
                 if (!is_dir($folderPath)) {
-                    // Attempt to create the main folder
                     if (mkdir($folderPath, 0777, true)) {
-                        errorm($res, 'info', 'PR11 : Folder Created', "Folder '$folderName' created successfully at '$folderPath'.");
-            
-                        // Create the subfolders
-                        $subfolders = ['media', 'styles', 'scripts'];
-                        foreach ($subfolders as $subfolder) {
-                            $subfolderPath = $folderPath . '/' . $subfolder;
-                            if (!mkdir($subfolderPath, 0777, true)) {
-                                errorm($res, 'bad', 'PR14 : Subfolder Failed', "Failed to create subfolder '$subfolder' in '$folderName'. Please check permissions.");
-                            } else {
-                                errorm($res, 'info', 'PR15 : Subfolder Created', "Subfolder '$subfolder' created successfully in '$folderName'.");
-                            }
+                        errorm($res, 'info', 'PR11 : Folder Created', "Folder '$projectName' created successfully.");
+
+                        // Define the JSON structure
+                        $structure = [
+                            [
+                                "html" => new stdClass(),
+                                "css" => new stdClass(),
+                                "js" => new stdClass(),
+                                "php" => new stdClass(),
+                                "mysql" => new stdClass()
+                            ]
+                        ];
+
+                        // Convert structure to JSON
+                        $jsonData = json_encode($structure, JSON_PRETTY_PRINT);
+
+                        // Write to structure.json
+                        if (file_put_contents($jsonPath, $jsonData)) {
+                            errorm($res, 'info', 'PR16 : JSON Created', "Structure JSON created successfully in '$projectName'.");
+                        } else {
+                            errorm($res, 'bad', 'PR17 : JSON Failed', "Failed to write structure.json in '$projectName'.");
                         }
+
                     } else {
-                        errorm($res, 'bad', 'PR12 : Folder Failed', "Failed to create folder '$folderName'. Please check permissions.");
+                        errorm($res, 'bad', 'PR12 : Folder Failed', "Failed to create folder '$projectName'.");
                     }
                 } else {
-                    errorm($res, 'bad', 'PR13 : Folder Exists', "Folder '$folderName' already exists.");
+                    errorm($res, 'bad', 'PR13 : Folder Exists', "Folder '$projectName' already exists.");
                 }
             }
-            function deleteProject($projName) {
-                $folderPath = rtrim(PROJECT, '/') . '/' . ltrim($projName, '/');
-                $folderPath = str_replace('\\', '/', $folderPath); // Normalize slashes
-            
-                // Check if the path exists
-                if (!file_exists($folderPath)) {
-                    throw new Exception("Path '$folderPath' does not exist.");
-                }
-            
-                // Check if it's a file
-                if (is_file($folderPath)) {
-                    if (!unlink($folderPath)) {
-                        throw new Exception("Failed to delete file '$folderPath'. Check permissions.");
-                    }
-                    echo "File '$projName' deleted successfully.";
+            function deleteFolder($projectName) {
+                $projectName = strtolower(trim($projectName));
+                $projectName = preg_replace('/[^a-z0-9\s]/', '', $projectName);
+                $projectName = preg_replace('/\s+/', '-', $projectName);
+
+                $folderPath = PROJECT . '/' . $projectName;
+                global $res;
+
+                if (!is_dir($folderPath)) {
+                    errorm($res, 'bad', 'PR21 : Folder Missing', "Project folder '$projectName' does not exist.");
                     return;
                 }
-            
-                // Check if it's a directory
-                if (is_dir($folderPath)) {
-                    $files = array_diff(scandir($folderPath), ['.', '..']);
-            
-                    // Check if the folder has subdirectories or files
-                    if (!empty($files)) {
-                        foreach ($files as $file) {
-                            $filePath = "$folderPath/$file";
-                            if (is_dir($filePath)) {
-                                // Recursive call for subdirectories
-                                deleteProject($filePath);
-                            } else {
-                                if (!unlink($filePath)) {
-                                    throw new Exception("Failed to delete file '$filePath'. Check permissions.");
-                                }
-                            }
-                        }
-                    }
-            
-                    // Delete the main folder after clearing contents
-                    if (!rmdir($folderPath)) {
-                        throw new Exception("Failed to delete folder '$folderPath'. Check permissions.");
-                    }
-                    echo "Folder '$projName' and its contents deleted successfully.";
-                } else {
-                    throw new Exception("Path '$folderPath' is neither a file nor a directory.");
-                }
-            }
-            function deleteFolder($folderPath) {
-                if (!is_dir($folderPath)) {
-                    throw new Exception("Folder '$folderPath' does not exist.");
-                }
-            
-                $files = array_diff(scandir($folderPath), ['.', '..']);
+
+                // Recursively delete files and subdirectories
+                $it = new RecursiveDirectoryIterator($folderPath, RecursiveDirectoryIterator::SKIP_DOTS);
+                $files = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST);
+
                 foreach ($files as $file) {
-                    $filePath = "$folderPath/$file";
-                    if (is_dir($filePath)) {
-                        deleteFolder($filePath); // Recursive call for subdirectories
+                    if ($file->isDir()) {
+                        rmdir($file->getRealPath());
                     } else {
-                        if (!unlink($filePath)) {
-                            throw new Exception("Failed to delete file '$filePath'. Check permissions.");
-                        }
+                        unlink($file->getRealPath());
                     }
                 }
-            
-                if (!rmdir($folderPath)) {
-                    throw new Exception("Failed to delete folder '$folderPath'. Check permissions.");
+
+                // Delete the main folder itself
+                if (rmdir($folderPath)) {
+                    errorm($res, 'info', 'PR22 : Folder Deleted', "Project folder '$projectName' and its contents have been deleted.");
+                } else {
+                    errorm($res, 'bad', 'PR23 : Deletion Failed', "Failed to delete folder '$projectName'. Check permissions.");
                 }
             }
+
 
             function fetchDirectories($directory) {
                 $result = [];
